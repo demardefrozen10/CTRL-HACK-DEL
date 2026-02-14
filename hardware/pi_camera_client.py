@@ -22,8 +22,10 @@ PC_LAN_IP = os.getenv("PC_LAN_IP", "").strip()
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))
 CAMERA_INDEX_CANDIDATES = os.getenv("CAMERA_INDEX_CANDIDATES", "").strip()
 USE_V4L2 = os.getenv("USE_V4L2", "true").strip().lower() in {"1", "true", "yes", "on"}
-FRAME_FPS = float(os.getenv("FRAME_FPS", "8"))
+FRAME_FPS = float(os.getenv("FRAME_FPS", "12"))
 JPEG_QUALITY = int(os.getenv("JPEG_QUALITY", "60"))
+FRAME_WIDTH = int(os.getenv("FRAME_WIDTH", "640"))
+FRAME_HEIGHT = int(os.getenv("FRAME_HEIGHT", "360"))
 RECONNECT_DELAY_SEC = float(os.getenv("RECONNECT_DELAY_SEC", "3"))
 
 
@@ -88,6 +90,12 @@ def _open_camera() -> cv2.VideoCapture:
     for index in candidates:
         capture = cv2.VideoCapture(index, backend_flag) if backend_flag is not None else cv2.VideoCapture(index)
         if capture.isOpened():
+            if FRAME_WIDTH > 0:
+                capture.set(cv2.CAP_PROP_FRAME_WIDTH, float(FRAME_WIDTH))
+            if FRAME_HEIGHT > 0:
+                capture.set(cv2.CAP_PROP_FRAME_HEIGHT, float(FRAME_HEIGHT))
+            if FRAME_FPS > 0:
+                capture.set(cv2.CAP_PROP_FPS, float(FRAME_FPS))
             print(f"[Camera] Opened camera index {index}" + (" with CAP_V4L2" if backend_flag is not None else ""))
             return capture
         capture.release()
@@ -132,6 +140,7 @@ async def _send_video_loop(ws: websockets.ClientConnection, stop_event: asyncio.
     capture = _open_camera()
 
     frame_interval = 1.0 / max(FRAME_FPS, 0.1)
+    next_send = asyncio.get_running_loop().time()
 
     try:
         while not stop_event.is_set():
@@ -140,12 +149,22 @@ async def _send_video_loop(ws: websockets.ClientConnection, stop_event: asyncio.
                 await asyncio.sleep(0.1)
                 continue
 
+            if FRAME_WIDTH > 0 and FRAME_HEIGHT > 0:
+                if frame.shape[1] != FRAME_WIDTH or frame.shape[0] != FRAME_HEIGHT:
+                    frame = cv2.resize(frame, (FRAME_WIDTH, FRAME_HEIGHT), interpolation=cv2.INTER_AREA)
+
             payload = {
                 "type": "video",
                 "data": _encode_frame_to_base64_jpeg(frame),
             }
             await ws.send(json.dumps(payload))
-            await asyncio.sleep(frame_interval)
+
+            next_send += frame_interval
+            sleep_for = next_send - asyncio.get_running_loop().time()
+            if sleep_for > 0:
+                await asyncio.sleep(sleep_for)
+            else:
+                next_send = asyncio.get_running_loop().time()
     finally:
         capture.release()
 
@@ -154,7 +173,12 @@ async def stream_camera_to_backend(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
         try:
             print(f"[WS] Connecting to {RESOLVED_BACKEND_WS_URL}")
-            async with websockets.connect(RESOLVED_BACKEND_WS_URL, ping_interval=20, ping_timeout=20) as ws:
+            async with websockets.connect(
+                RESOLVED_BACKEND_WS_URL,
+                ping_interval=20,
+                ping_timeout=20,
+                compression=None,
+            ) as ws:
                 recv_task = asyncio.create_task(_recv_loop(ws))
                 send_task = asyncio.create_task(_send_video_loop(ws, stop_event))
 
@@ -195,7 +219,10 @@ async def main() -> None:
     if "localhost" in RESOLVED_BACKEND_WS_URL or "127.0.0.1" in RESOLVED_BACKEND_WS_URL:
         print("[Warning] Backend URL points to localhost. On Raspberry Pi, set PC_LAN_IP or BACKEND_HOST to your PC IP.")
     print(f"[Config] CAMERA_INDEX={CAMERA_INDEX}, CAMERA_INDEX_CANDIDATES={CAMERA_INDEX_CANDIDATES or 'auto'}, USE_V4L2={USE_V4L2}")
-    print(f"[Config] FRAME_FPS={FRAME_FPS}, JPEG_QUALITY={JPEG_QUALITY}")
+    print(
+        f"[Config] FRAME_FPS={FRAME_FPS}, JPEG_QUALITY={JPEG_QUALITY}, "
+        f"FRAME_WIDTH={FRAME_WIDTH}, FRAME_HEIGHT={FRAME_HEIGHT}"
+    )
     await stream_camera_to_backend(stop_event)
 
 

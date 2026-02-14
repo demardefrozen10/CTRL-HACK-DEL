@@ -42,7 +42,7 @@ function apiBaseUrl() {
   if (envBase) return envBase.replace(/\/+$/, '')
   const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:'
   const host = window.location.hostname || '127.0.0.1'
-  return `${protocol}//${host}:8000`
+  return `${protocol}//${host}:8010`
 }
 
 function inclusionMatches(value: boolean | null | undefined, mode: InclusionFilter) {

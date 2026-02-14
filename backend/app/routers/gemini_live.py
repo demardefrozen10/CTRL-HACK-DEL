@@ -30,6 +30,19 @@ _control_queue: asyncio.Queue[dict] = asyncio.Queue()
 _source_connected = False
 _session_active = False
 
+
+def _offer_latest_video_frame(queue: asyncio.Queue[str], b64_data: str) -> None:
+    """Keep only the most recent frame so Gemini never lags behind real-time."""
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:
+            break
+    try:
+        queue.put_nowait(b64_data)
+    except asyncio.QueueFull:
+        pass
+
 # ---------------------------------------------------------------------------
 # Gemini Live session configuration
 # ---------------------------------------------------------------------------
@@ -110,13 +123,17 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
     try:
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             logger.info("[DEBUG] Gemini Live session opened")
+            video_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=1)
             _session_active = True
             await ws.send_text(json.dumps({"type": "session_started"}))
             logger.info("[DEBUG] session_started sent to source + broadcasting to %d viewers", len(_viewer_clients))
             await _broadcast_to_viewers({"type": "session_started"})
 
             source_send_task = asyncio.create_task(
-                _forward_source_to_gemini(ws, session)
+                _forward_source_to_gemini(ws, session, video_queue)
+            )
+            video_send_task = asyncio.create_task(
+                _forward_video_to_gemini(session, video_queue)
             )
             control_send_task = asyncio.create_task(
                 _forward_viewer_commands_to_gemini(session)
@@ -124,7 +141,7 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
             recv_task = asyncio.create_task(_forward_gemini_to_clients(ws, session))
 
             done, pending = await asyncio.wait(
-                [source_send_task, control_send_task, recv_task],
+                [source_send_task, video_send_task, control_send_task, recv_task],
                 return_when=asyncio.FIRST_COMPLETED,
             )
             for task in pending:
@@ -216,6 +233,7 @@ async def _viewer_loop(ws: WebSocket) -> None:
 async def _forward_source_to_gemini(
     ws: WebSocket,
     session,
+    video_queue: asyncio.Queue[str],
 ) -> None:
     """Read messages from source WS and forward to Gemini Live."""
     _frame_count = 0
@@ -235,12 +253,7 @@ async def _forward_source_to_gemini(
                     _frame_count, len(b64_data), n_viewers,
                 )
             await _broadcast_to_viewers({"type": "video_preview", "data": b64_data})
-            await session.send_realtime_input(
-                media=types.Blob(
-                    mime_type="image/jpeg",
-                    data=base64.b64decode(b64_data),
-                )
-            )
+            _offer_latest_video_frame(video_queue, b64_data)
 
         elif msg_type == "audio":
             # Browser sends: {"type":"audio","data":"<base64 PCM 16-bit 16kHz mono>"}
@@ -262,6 +275,21 @@ async def _forward_source_to_gemini(
 
         elif msg_type == "end_audio_stream":
             await session.send_realtime_input(audio_stream_end=True)
+
+
+async def _forward_video_to_gemini(
+    session,
+    video_queue: asyncio.Queue[str],
+) -> None:
+    """Forward only the newest queued frame to Gemini to avoid stale-frame lag."""
+    while True:
+        b64_data = await video_queue.get()
+        await session.send_realtime_input(
+            media=types.Blob(
+                mime_type="image/jpeg",
+                data=base64.b64decode(b64_data),
+            )
+        )
 
 
 async def _forward_viewer_commands_to_gemini(session) -> None:

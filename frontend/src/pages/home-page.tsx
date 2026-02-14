@@ -15,6 +15,14 @@ import {
 import heroBackground from '@/assets/rb-hp-pday-sun-d.jpg'
 import csHubLogo from '@/assets/CS Hub (4).png'
 
+function apiBaseUrl() {
+  const envBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
+  if (envBase) return envBase.replace(/\/+$/, '')
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:'
+  const host = window.location.hostname || '127.0.0.1'
+  return `${protocol}//${host}:8010`
+}
+
 export function HomePage() {
   const [showLogin, setShowLogin] = useState(false)
   const [username, setUsername] = useState('')
@@ -22,6 +30,7 @@ export function HomePage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const apiBase = apiBaseUrl()
   const modalRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const firstInputRef = useRef<HTMLInputElement>(null)
@@ -81,7 +90,7 @@ export function HomePage() {
       formData.append('username', username)
       formData.append('password', password)
 
-      const response = await fetch('http://localhost:8000/auth/login', {
+      const response = await fetch(`${apiBase}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

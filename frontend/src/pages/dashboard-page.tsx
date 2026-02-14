@@ -8,10 +8,12 @@ import {
   Volume2,
   Wifi,
   WifiOff,
-  Gauge,
+  Glasses,
+  Activity,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 type Detection = {
   label: string
@@ -73,15 +75,17 @@ function Panel({
   className?: string
 }) {
   return (
-    <section
-      className={`rounded-2xl border border-[#ff9e3d] bg-[radial-gradient(circle_at_12%_8%,rgba(90,42,15,0.45),rgba(13,8,4,0.96)_72%)] p-4 shadow-[0_0_22px_rgba(255,158,61,0.22)] ${className}`}
-    >
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-[#ffd7a4]">
-        {icon}
-        {title}
-      </h3>
-      {children}
-    </section>
+    <Card className={`border-white/10 bg-card ${className}`}>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-white">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {children}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -264,48 +268,63 @@ export function DashboardPage() {
   const hapticPercent = Math.round((hapticIntensity / 255) * 100)
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_20%_0%,#3d2410_0%,#120903_50%,#060301_100%)] text-[#ffe8c2] [font-family:'Space_Grotesk','Trebuchet_MS',sans-serif]">
-      <header className="border-b border-[#ff9e3d] bg-[linear-gradient(180deg,#1a0d04_0%,#130802cc_100%)] px-4 py-3 shadow-[0_4px_20px_rgba(255,158,61,0.28)]">
-        <div className="mx-auto flex w-full max-w-[1700px] items-center justify-between gap-4">
+    <main className="min-h-screen bg-background text-white">
+      <header className="border-b border-white/10 bg-background px-4 py-4 shadow-sm">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="h-3 w-3 rounded-full bg-[#ffd18b] shadow-[0_0_16px_rgba(255,209,139,0.9)]" />
-            <p className="text-base font-semibold uppercase tracking-[0.22em] text-[#ffdeb2] md:text-lg">
-              Echo-Sight Accessibility Dashboard
+            <Glasses className="h-6 w-6 text-white" />
+            <p className="text-xl font-bold italic tracking-tight text-white">
+              VibeGlasses
             </p>
+            <span className="ml-2 text-sm text-muted-foreground">
+              Dashboard
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="rounded-full border border-[#ff9e3d] bg-[#4d230a] px-4 py-1.5 text-sm uppercase tracking-[0.15em] text-[#ffd9a5]">
-              Frontend : {portLabel}
-            </span>
             <span
-              className={`flex items-center gap-2 text-sm tracking-[0.12em] ${
-                connected ? 'text-[#ffe3b8]' : 'text-[#ffc4b3]'
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                connected 
+                  ? 'border-green-500/20 bg-green-500/10 text-green-400' 
+                  : 'border-red-500/20 bg-red-500/10 text-red-400'
               }`}
             >
-              {connected ? <Wifi className="h-5 w-5" /> : <WifiOff className="h-5 w-5" />}
-              {connected ? 'WebSocket connected' : 'WebSocket disconnected'}
+              {connected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+              {connected ? 'Connected' : 'Disconnected'}
             </span>
+            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              {username}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-white/10 hover:bg-white/5"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1700px] grid-cols-1 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="relative min-h-[72vh] overflow-hidden rounded-2xl border border-[#ff9e3d] bg-black shadow-[0_0_36px_rgba(255,158,61,0.22)]">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <section className="relative min-h-[70vh] overflow-hidden rounded-xl border border-white/10 bg-black shadow-lg">
           <img
             src={videoUrl}
-            alt="Echo-Sight live feed"
-            className="h-full w-full object-cover"
+            alt="Live camera feed"
             onLoad={() => setVideoReady(true)}
-            onError={() => setVideoReady(false)}
+            className="h-full w-full object-cover"
           />
 
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_38%,rgba(0,0,0,0.45)_100%)]" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
           {!videoReady && (
-            <div className="absolute left-6 top-6 rounded border border-[#ffd86d] bg-[#5a3a0ecc] px-5 py-4 text-[#fff1c8] shadow-[0_0_16px_rgba(255,216,109,0.4)]">
-              <p className="text-2xl font-semibold uppercase tracking-[0.08em]">Echo-Sight Demo Mode</p>
-              <p className="mt-2 text-lg">Waiting for live camera stream on `{videoUrl}`</p>
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-background/95 px-8 py-6 text-center backdrop-blur-sm">
+              <Activity className="mx-auto mb-3 h-12 w-12 animate-pulse text-white" />
+              <p className="text-xl font-semibold text-white">Waiting for camera feed</p>
+              <p className="mt-2 text-sm text-muted-foreground">{videoUrl}</p>
             </div>
           )}
 
@@ -314,7 +333,7 @@ export function DashboardPage() {
             return (
               <div
                 key={`${detection.label}-${index}`}
-                className="absolute border-[3px] border-[#ffca72] shadow-[0_0_20px_rgba(255,202,114,0.9)]"
+                className="absolute border-2 border-white shadow-lg"
                 style={{
                   left: `${(xmin / 1000) * 100}%`,
                   top: `${(ymin / 1000) * 100}%`,
@@ -322,7 +341,7 @@ export function DashboardPage() {
                   height: `${((ymax - ymin) / 1000) * 100}%`,
                 }}
               >
-                <span className="absolute -top-7 left-0 border border-[#ffca72] bg-[#5c3408] px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.06em] text-[#fff2d6]">
+                <span className="absolute -top-6 left-0 rounded border border-white/20 bg-background px-2 py-0.5 text-xs font-semibold uppercase text-white backdrop-blur-sm">
                   {detection.label}
                 </span>
               </div>
@@ -330,107 +349,109 @@ export function DashboardPage() {
           })}
         </section>
 
-        <aside className="flex flex-col gap-3">
-          <Panel title="App Source" icon={<Gauge className="h-5 w-5" />}>
-            <p className="text-base leading-7 text-[#ffe5c0]">
-              React UI port: <span className="font-semibold text-[#fff0d8]">{portLabel}</span>
-            </p>
-            <p className="text-base leading-7 text-[#ffe5c0]">
-              Backend API/video/ws source:
-              <br />
-              <span className="font-semibold text-[#fff0d8]">{apiBase}</span>
-            </p>
-            <div className="mt-3 flex items-center justify-between border-t border-[#ff9e3d66] pt-3">
-              <span className="flex items-center gap-2 text-base text-[#ffdcae]">
-                <User className="h-5 w-5" /> {username}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-10 border border-[#ff9e3d66] px-4 text-[#ffe8c2] hover:bg-[#ff9e3d1f] hover:text-white"
-                onClick={handleLogout}
-              >
-                <LogOut className="mr-2 h-5 w-5" />
-                Logout
-              </Button>
+        <aside className="flex flex-col gap-4">
+          <Panel title="Connection Info" icon={<User className="h-4 w-4" />}>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>
+                <span className="font-medium text-white">Frontend:</span> Port {portLabel}
+              </p>
+              <p>
+                <span className="font-medium text-white">Backend:</span>
+                <br />
+                <span className="text-xs">{apiBase}</span>
+              </p>
             </div>
           </Panel>
 
-          <Panel title="Hardware Controls" icon={<Vibrate className="h-5 w-5" />}>
+          <Panel title="Hardware Controls" icon={<Vibrate className="h-4 w-4" />}>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={handleAnalyzeNow}
                 disabled={actionBusy !== null}
-                className="h-12 bg-[#ffb347] text-base font-semibold text-[#2c1403] hover:bg-[#ffc06a]"
+                className="h-11 bg-white text-sm font-semibold text-black hover:bg-white/90"
               >
-                <Camera className="mr-2 h-5 w-5" />
+                <Camera className="mr-2 h-4 w-4" />
                 Analyze Now
               </Button>
               <Button
                 onClick={() => handleSpeakPrompt()}
                 disabled={actionBusy !== null}
-                className="h-12 bg-[#ffd08a] text-base font-semibold text-[#2c1403] hover:bg-[#ffdcaa]"
+                className="h-11 bg-white text-sm font-semibold text-black hover:bg-white/90"
               >
-                <Volume2 className="mr-2 h-5 w-5" />
-                Speak Prompt
+                <Volume2 className="mr-2 h-4 w-4" />
+                Speak
               </Button>
               <Button
                 onClick={() => handleHapticPulse(120)}
                 disabled={actionBusy !== null}
-                className="h-12 bg-[#ffa03a] text-base font-semibold text-[#2c1403] hover:bg-[#ffb35f]"
+                variant="outline"
+                className="h-11 border-white/10 text-sm font-semibold"
               >
-                <Vibrate className="mr-2 h-5 w-5" />
+                <Vibrate className="mr-2 h-4 w-4" />
                 Pulse 120
               </Button>
               <Button
                 onClick={() => handleHapticPulse(220)}
                 disabled={actionBusy !== null}
-                className="h-12 bg-[#ff7f2d] text-base font-semibold text-[#2c1403] hover:bg-[#ff9550]"
+                variant="outline"
+                className="h-11 border-white/10 text-sm font-semibold"
               >
-                <Vibrate className="mr-2 h-5 w-5" />
+                <Vibrate className="mr-2 h-4 w-4" />
                 Max Alert
               </Button>
             </div>
           </Panel>
 
-          <Panel title="Voice Prompt" icon={<Volume2 className="h-5 w-5" />}>
-            <p className="min-h-[64px] text-4xl leading-tight text-[#fff0d7]">{voicePrompt}</p>
+          <Panel title="Voice Prompt" icon={<Volume2 className="h-4 w-4" />}>
+            <p className="min-h-[48px] text-2xl font-semibold leading-tight text-white">
+              {voicePrompt}
+            </p>
           </Panel>
 
-          <Panel title="Haptic Intensity (0-255)" icon={<Vibrate className="h-5 w-5" />}>
-            <p className="text-6xl text-[#ffdbac]">{hapticIntensity}</p>
-            <div className="mt-3 h-7 overflow-hidden rounded-full border border-[#ff9e3d] bg-[#4e260a]">
-              <div
-                className="h-full bg-[linear-gradient(90deg,#ffe7c1_0%,#ffd28d_55%,#ff9d3a_100%)] shadow-[0_0_18px_rgba(255,181,91,0.55)] transition-all duration-200"
-                style={{ width: `${hapticPercent}%` }}
-              />
+          <Panel title="Haptic Intensity" icon={<Vibrate className="h-4 w-4" />}>
+            <div className="space-y-3">
+              <p className="text-4xl font-bold text-white">{hapticIntensity}</p>
+              <div className="space-y-1">
+                <div className="h-3 overflow-hidden rounded-full border border-white/10 bg-white/5">
+                  <div
+                    className="h-full bg-white transition-all duration-200"
+                    style={{ width: `${hapticPercent}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{hapticPercent}% intensity</p>
+              </div>
             </div>
           </Panel>
 
-          <Panel title="Detections" icon={<Camera className="h-5 w-5" />}>
+          <Panel title="Detections" icon={<Camera className="h-4 w-4" />}>
             {detections.length === 0 ? (
-              <p className="text-xl text-[#ffe0b5]">No active obstacles</p>
+              <p className="text-sm text-muted-foreground">No obstacles detected</p>
             ) : (
               <div className="space-y-2">
                 {detections.map((detection, index) => (
-                  <p
+                  <div
                     key={`${detection.label}-${index}`}
-                    className="rounded-md border border-[#ff9e3d66] bg-[#4d240bcf] px-3 py-2 text-base text-[#fff0d7]"
-                  >
-                    {detection.label} :: [{detection.box.join(', ')}]
-                  </p>
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                    <p className="font-medium text-white">{detection.label}</p>
+                    <p className="text-xs text-muted-foreground">
+                      [{detection.box.join(', ')}]
+                    </p>
+                  </div>
                 ))}
               </div>
             )}
           </Panel>
 
-          <Panel title="Event Log" icon={<Gauge className="h-5 w-5" />} className="flex-1">
-            <div className="max-h-[270px] space-y-2 overflow-y-auto pr-1 text-sm text-[#ffd8a6]">
-              {eventLog.length === 0 && <p>Waiting for websocket events...</p>}
+          <Panel title="Activity Log" icon={<Activity className="h-4 w-4" />} className="flex-1">
+            <div className="max-h-[280px] space-y-1.5 overflow-y-auto pr-1 text-xs">
+              {eventLog.length === 0 && (
+                <p className="text-muted-foreground">Waiting for events...</p>
+              )}
               {eventLog.map((entry) => (
-                <p key={entry.id} className="border-b border-[#ff9e3d33] pb-2">
-                  <span className="text-[#ffc276]">[{entry.time}]</span> {entry.text}
-                </p>
+                <div key={entry.id} className="border-b border-white/5 pb-1.5">
+                  <span className="font-medium text-muted-foreground">[{entry.time}]</span>
+                  <span className="ml-2 text-white">{entry.text}</span>
+                </div>
               ))}
             </div>
           </Panel>

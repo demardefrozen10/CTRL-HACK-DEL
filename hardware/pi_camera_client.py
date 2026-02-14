@@ -12,6 +12,14 @@ import cv2
 import websockets
 from dotenv import load_dotenv
 
+# Try to import pyaudio for microphone capture
+try:
+    import pyaudio
+    PYAUDIO_AVAILABLE = True
+except ImportError:
+    PYAUDIO_AVAILABLE = False
+    print("[Warning] pyaudio not installed. Run: pip install pyaudio (or apt install python3-pyaudio on Pi)")
+
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
 BACKEND_WS_URL = os.getenv("BACKEND_WS_URL", "").strip()
@@ -27,6 +35,13 @@ JPEG_QUALITY = int(os.getenv("JPEG_QUALITY", "60"))
 FRAME_WIDTH = int(os.getenv("FRAME_WIDTH", "640"))
 FRAME_HEIGHT = int(os.getenv("FRAME_HEIGHT", "360"))
 RECONNECT_DELAY_SEC = float(os.getenv("RECONNECT_DELAY_SEC", "3"))
+
+# Audio settings
+AUDIO_ENABLED = os.getenv("AUDIO_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+AUDIO_DEVICE_INDEX = os.getenv("AUDIO_DEVICE_INDEX", "").strip()  # Empty = default mic
+AUDIO_SAMPLE_RATE = 16000  # Gemini expects 16kHz
+AUDIO_CHANNELS = 1  # Mono
+AUDIO_CHUNK_SIZE = 1024  # Samples per chunk
 
 
 def _build_backend_ws_url() -> str:
@@ -169,6 +184,69 @@ async def _send_video_loop(ws: websockets.ClientConnection, stop_event: asyncio.
         capture.release()
 
 
+async def _send_audio_loop(ws: websockets.ClientConnection, stop_event: asyncio.Event) -> None:
+    """Capture audio from microphone and send to backend as PCM chunks."""
+    if not PYAUDIO_AVAILABLE:
+        print("[Audio] pyaudio not available, skipping audio capture")
+        return
+    
+    if not AUDIO_ENABLED:
+        print("[Audio] Audio capture disabled via AUDIO_ENABLED=false")
+        return
+
+    pa = pyaudio.PyAudio()
+    
+    # Determine device index
+    device_index = None
+    if AUDIO_DEVICE_INDEX:
+        try:
+            device_index = int(AUDIO_DEVICE_INDEX)
+        except ValueError:
+            print(f"[Audio] Invalid AUDIO_DEVICE_INDEX: {AUDIO_DEVICE_INDEX}, using default")
+    
+    # List available devices for debugging
+    print("[Audio] Available audio input devices:")
+    for i in range(pa.get_device_count()):
+        info = pa.get_device_info_by_index(i)
+        if info.get("maxInputChannels", 0) > 0:
+            print(f"  [{i}] {info.get('name')} (inputs: {info.get('maxInputChannels')})")
+    
+    try:
+        stream = pa.open(
+            format=pyaudio.paInt16,
+            channels=AUDIO_CHANNELS,
+            rate=AUDIO_SAMPLE_RATE,
+            input=True,
+            input_device_index=device_index,
+            frames_per_buffer=AUDIO_CHUNK_SIZE,
+        )
+        print(f"[Audio] Microphone opened (device={device_index or 'default'}, rate={AUDIO_SAMPLE_RATE}Hz)")
+    except Exception as e:
+        print(f"[Audio] Failed to open microphone: {e}")
+        pa.terminate()
+        return
+
+    try:
+        while not stop_event.is_set():
+            try:
+                # Read audio chunk (blocking, but short enough not to matter)
+                audio_data = stream.read(AUDIO_CHUNK_SIZE, exception_on_overflow=False)
+                
+                # Encode as base64 and send
+                b64_audio = base64.b64encode(audio_data).decode("ascii")
+                payload = {"type": "audio", "data": b64_audio}
+                await ws.send(json.dumps(payload))
+                
+            except Exception as e:
+                print(f"[Audio] Error reading/sending audio: {e}")
+                await asyncio.sleep(0.1)
+    finally:
+        stream.stop_stream()
+        stream.close()
+        pa.terminate()
+        print("[Audio] Microphone closed")
+
+
 async def stream_camera_to_backend(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
         try:
@@ -180,10 +258,11 @@ async def stream_camera_to_backend(stop_event: asyncio.Event) -> None:
                 compression=None,
             ) as ws:
                 recv_task = asyncio.create_task(_recv_loop(ws))
-                send_task = asyncio.create_task(_send_video_loop(ws, stop_event))
+                video_task = asyncio.create_task(_send_video_loop(ws, stop_event))
+                audio_task = asyncio.create_task(_send_audio_loop(ws, stop_event))
 
                 done, pending = await asyncio.wait(
-                    [recv_task, send_task],
+                    [recv_task, video_task, audio_task],
                     return_when=asyncio.FIRST_EXCEPTION,
                 )
 
@@ -223,6 +302,7 @@ async def main() -> None:
         f"[Config] FRAME_FPS={FRAME_FPS}, JPEG_QUALITY={JPEG_QUALITY}, "
         f"FRAME_WIDTH={FRAME_WIDTH}, FRAME_HEIGHT={FRAME_HEIGHT}"
     )
+    print(f"[Config] AUDIO_ENABLED={AUDIO_ENABLED}, AUDIO_DEVICE_INDEX={AUDIO_DEVICE_INDEX or 'default'}")
     await stream_camera_to_backend(stop_event)
 
 

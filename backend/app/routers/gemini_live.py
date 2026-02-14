@@ -48,27 +48,45 @@ def _offer_latest_video_frame(queue: asyncio.Queue[str], b64_data: str) -> None:
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MODEL = "gemini-2.5-flash-native-audio-latest"
+VIDEO_TO_GEMINI_ENABLED = os.getenv("VIDEO_TO_GEMINI_ENABLED", "true").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
+DEFAULT_SYSTEM_INSTRUCTION = (
+    "Be a helpful assistant. Respond in english."
+)
 SYSTEM_INSTRUCTION = (
-    "You are a helpful assistant. Answer any questions as necessary."
+    os.getenv("GEMINI_LIVE_SYSTEM_INSTRUCTION", "").strip()
+    or DEFAULT_SYSTEM_INSTRUCTION
 )
 
 
 def _build_config() -> types.LiveConnectConfig:
     """Build the Gemini Live session config."""
-    return types.LiveConnectConfig(
-        response_modalities=["AUDIO"],
-        system_instruction=types.Content(
+    config_kwargs: dict = {
+        "response_modalities": ["AUDIO"],
+        "system_instruction": types.Content(
             parts=[types.Part(text=SYSTEM_INSTRUCTION)]
         ),
-        speech_config=types.SpeechConfig(
+        "speech_config": types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(
                     voice_name="Puck"
                 )
             )
         ),
-    )
+        "realtime_input_config": types.RealtimeInputConfig(
+            automatic_activity_detection=types.AutomaticActivityDetection(
+                disabled=False,
+                start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_LOW,
+                prefix_padding_ms=300,
+                silence_duration_ms=2000,
+            )
+        ),
+    }
+
+    return types.LiveConnectConfig(**config_kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +271,8 @@ async def _forward_source_to_gemini(
                     _frame_count, len(b64_data), n_viewers,
                 )
             await _broadcast_to_viewers({"type": "video_preview", "data": b64_data})
-            _offer_latest_video_frame(video_queue, b64_data)
+            if VIDEO_TO_GEMINI_ENABLED:
+                _offer_latest_video_frame(video_queue, b64_data)
 
         elif msg_type == "audio":
             # Browser sends: {"type":"audio","data":"<base64 PCM 16-bit 16kHz mono>"}
@@ -282,6 +301,11 @@ async def _forward_video_to_gemini(
     video_queue: asyncio.Queue[str],
 ) -> None:
     """Forward only the newest queued frame to Gemini to avoid stale-frame lag."""
+    if not VIDEO_TO_GEMINI_ENABLED:
+        logger.info("[DEBUG] VIDEO_TO_GEMINI_ENABLED=false, skipping video forwarding to Gemini")
+        while True:
+            await asyncio.sleep(60)
+
     while True:
         b64_data = await video_queue.get()
         await session.send_realtime_input(

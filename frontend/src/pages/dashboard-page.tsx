@@ -28,6 +28,7 @@ type LogEntry = { id: number; time: string; text: string }
 const MAX_LOG = 120
 const FRAME_INTERVAL_MS = 1000 // send 1 frame per second to Gemini
 const USE_PI_CAMERA = true
+const MIC_BUFFER_SIZE = 1024
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -327,12 +328,15 @@ export function DashboardPage() {
       audioContextRef.current = audioCtx
       const source = audioCtx.createMediaStreamSource(stream)
 
-      const scriptNode = audioCtx.createScriptProcessor(4096, 1, 1)
+      const scriptNode = audioCtx.createScriptProcessor(MIC_BUFFER_SIZE, 1, 1)
       scriptNodeRef.current = scriptNode
 
       scriptNode.onaudioprocess = (e) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
         const float32 = e.inputBuffer.getChannelData(0)
+
+        // Always send audio - let Gemini's server-side VAD handle speech detection
+        // Client-side gating was clipping the start of words causing hallucinations
         const int16 = new Int16Array(float32.length)
         for (let i = 0; i < float32.length; i++) {
           const s = Math.max(-1, Math.min(1, float32[i]))

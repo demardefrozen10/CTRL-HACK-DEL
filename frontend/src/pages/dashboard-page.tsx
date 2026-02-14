@@ -27,6 +27,7 @@ type LogEntry = { id: number; time: string; text: string }
 
 const MAX_LOG = 120
 const FRAME_INTERVAL_MS = 1000 // send 1 frame per second to Gemini
+const USE_PI_CAMERA = true
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -138,7 +139,7 @@ export function DashboardPage() {
   const playerRef = useRef<ReturnType<typeof createPcmPlayer> | null>(null)
 
   const apiBase = useMemo(apiBaseUrl, [])
-  const wsUrl = `${apiBase.replace(/^http/i, 'ws')}/ws/live`
+  const wsUrl = `${apiBase.replace(/^http/i, 'ws')}/ws/live?role=${USE_PI_CAMERA ? 'viewer' : 'source'}`
 
   /* ---------- logging ---------- */
   const addLog = useCallback((text: string) => {
@@ -210,6 +211,11 @@ export function DashboardPage() {
 
   /* ---------- Camera ---------- */
   const startCamera = useCallback(async () => {
+    if (USE_PI_CAMERA) {
+      setCameraOn(true)
+      addLog('Pi camera mode enabled (browser camera disabled)')
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: 640, height: 480 },
@@ -244,6 +250,11 @@ export function DashboardPage() {
   }, [addLog])
 
   const stopCamera = useCallback(() => {
+    if (USE_PI_CAMERA) {
+      setCameraOn(false)
+      addLog('Pi camera mode paused')
+      return
+    }
     if (frameTimerRef.current) {
       clearInterval(frameTimerRef.current)
       frameTimerRef.current = null
@@ -394,9 +405,11 @@ export function DashboardPage() {
           {!cameraOn && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-background/95 px-8 py-6 text-center backdrop-blur-sm">
               <Camera className="mx-auto mb-3 h-12 w-12 text-white" />
-              <p className="text-xl font-semibold text-white">Camera is off</p>
+              <p className="text-xl font-semibold text-white">{USE_PI_CAMERA ? 'Pi camera mode' : 'Camera is off'}</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Click &ldquo;Start Camera&rdquo; to begin streaming to Gemini&nbsp;Live
+                {USE_PI_CAMERA
+                  ? 'Start Pi camera client on Raspberry Pi to stream frames into this dashboard session.'
+                  : 'Click "Start Camera" to begin streaming to Gemini Live'}
               </p>
             </div>
           )}
@@ -412,7 +425,7 @@ export function DashboardPage() {
               }`}
             >
               {cameraOn ? <CameraOff className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
-              {cameraOn ? 'Stop Camera' : 'Start Camera'}
+              {cameraOn ? (USE_PI_CAMERA ? 'Stop Pi Camera Mode' : 'Stop Camera') : (USE_PI_CAMERA ? 'Use Pi Camera' : 'Start Camera')}
             </Button>
             <Button
               onClick={micOn ? stopMic : startMic}
@@ -438,7 +451,7 @@ export function DashboardPage() {
               </p>
               <p>
                 <span className="font-medium text-white">Camera:</span>{' '}
-                {cameraOn ? '🟢 streaming' : '⚫ off'}
+                {cameraOn ? (USE_PI_CAMERA ? '🟢 Raspberry Pi source' : '🟢 streaming') : '⚫ off'}
               </p>
               <p>
                 <span className="font-medium text-white">Mic:</span>{' '}

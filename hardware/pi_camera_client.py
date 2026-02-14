@@ -6,6 +6,7 @@ import json
 import os
 import signal
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import cv2
 import websockets
@@ -38,7 +39,14 @@ def _build_backend_ws_url() -> str:
     return f"ws://{host}:{BACKEND_PORT}{path}"
 
 
-RESOLVED_BACKEND_WS_URL = _build_backend_ws_url()
+def _ensure_source_role(url: str) -> str:
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.setdefault("role", "source")
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+RESOLVED_BACKEND_WS_URL = _ensure_source_role(_build_backend_ws_url())
 
 
 def _encode_frame_to_base64_jpeg(frame) -> str:

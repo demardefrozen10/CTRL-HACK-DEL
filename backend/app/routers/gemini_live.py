@@ -23,6 +23,12 @@ logger = logging.getLogger("echo-sight.gemini-live")
 
 router = APIRouter(tags=["gemini-live"])
 
+_viewer_clients: set[WebSocket] = set()
+_viewer_lock = asyncio.Lock()
+_source_lock = asyncio.Lock()
+_control_queue: asyncio.Queue[dict] = asyncio.Queue()
+_source_connected = False
+
 # ---------------------------------------------------------------------------
 # Gemini Live session configuration
 # ---------------------------------------------------------------------------
@@ -57,9 +63,29 @@ def _build_config() -> types.LiveConnectConfig:
 
 @router.websocket("/ws/live")
 async def gemini_live_proxy(ws: WebSocket) -> None:
-    """Proxy between browser WebSocket and Gemini Live API session."""
+    """Proxy between WebSocket clients and Gemini Live API session.
+
+    role=source: sends video/audio to Gemini (Pi client)
+    role=viewer: receives Gemini responses and can send text commands (dashboard)
+    """
+    role = (ws.query_params.get("role") or "source").lower()
+    if role == "viewer":
+        await _viewer_loop(ws)
+        return
+
     await ws.accept()
-    logger.info("Browser connected to /ws/live")
+    logger.info("Source connected to /ws/live")
+
+    global _source_connected
+    async with _source_lock:
+        if _source_connected:
+            await ws.send_text(json.dumps({
+                "type": "error",
+                "message": "A source session is already active.",
+            }))
+            await ws.close()
+            return
+        _source_connected = True
 
     if not GEMINI_API_KEY:
         await ws.send_text(json.dumps({
@@ -80,13 +106,18 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             logger.info("Gemini Live session opened")
             await ws.send_text(json.dumps({"type": "session_started"}))
+            await _broadcast_to_viewers({"type": "session_started"})
 
-            # Run send + receive concurrently
-            send_task = asyncio.create_task(_forward_browser_to_gemini(ws, session))
-            recv_task = asyncio.create_task(_forward_gemini_to_browser(ws, session))
+            source_send_task = asyncio.create_task(
+                _forward_source_to_gemini(ws, session)
+            )
+            control_send_task = asyncio.create_task(
+                _forward_viewer_commands_to_gemini(session)
+            )
+            recv_task = asyncio.create_task(_forward_gemini_to_clients(ws, session))
 
             done, pending = await asyncio.wait(
-                [send_task, recv_task],
+                [source_send_task, control_send_task, recv_task],
                 return_when=asyncio.FIRST_COMPLETED,
             )
             for task in pending:
@@ -96,7 +127,7 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
                 task.result()
 
     except WebSocketDisconnect:
-        logger.info("Browser disconnected from /ws/live")
+        logger.info("Source disconnected from /ws/live")
     except Exception as exc:
         logger.exception("Gemini Live proxy error: %s", exc)
         try:
@@ -111,14 +142,60 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
             await ws.close()
         except Exception:
             pass
+        async with _source_lock:
+            _source_connected = False
         logger.info("Gemini Live session closed")
+        await _broadcast_to_viewers({"type": "source_disconnected"})
 
 
-async def _forward_browser_to_gemini(
+async def _viewer_loop(ws: WebSocket) -> None:
+    await ws.accept()
+    async with _viewer_lock:
+        _viewer_clients.add(ws)
+    logger.info("Viewer connected to /ws/live")
+
+    try:
+        await ws.send_text(json.dumps({"type": "viewer_connected"}))
+        while True:
+            raw = await ws.receive_text()
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+            msg_type = msg.get("type")
+            if msg_type == "text":
+                text = str(msg.get("text", "")).strip()
+                if not text:
+                    continue
+                if not _source_connected:
+                    await ws.send_text(json.dumps({
+                        "type": "error",
+                        "message": "No Pi source connected.",
+                    }))
+                    continue
+                await _control_queue.put({"type": "text", "text": text})
+
+            elif msg_type == "end_audio_stream":
+                if _source_connected:
+                    await _control_queue.put({"type": "end_audio_stream"})
+
+    except WebSocketDisconnect:
+        logger.info("Viewer disconnected from /ws/live")
+    finally:
+        async with _viewer_lock:
+            _viewer_clients.discard(ws)
+        try:
+            await ws.close()
+        except Exception:
+            pass
+
+
+async def _forward_source_to_gemini(
     ws: WebSocket,
     session,
 ) -> None:
-    """Read messages from the browser WS and forward to Gemini Live."""
+    """Read messages from source WS and forward to Gemini Live."""
     while True:
         raw = await ws.receive_text()
         msg = json.loads(raw)
@@ -156,37 +233,78 @@ async def _forward_browser_to_gemini(
             await session.send_realtime_input(audio_stream_end=True)
 
 
-async def _forward_gemini_to_browser(
+async def _forward_viewer_commands_to_gemini(session) -> None:
+    while True:
+        command = await _control_queue.get()
+        msg_type = command.get("type")
+
+        if msg_type == "text":
+            text = str(command.get("text", "")).strip()
+            if text:
+                await session.send_client_content(
+                    turns=types.Content(parts=[types.Part(text=text)]),
+                    turn_complete=True,
+                )
+        elif msg_type == "end_audio_stream":
+            await session.send_realtime_input(audio_stream_end=True)
+
+
+async def _forward_gemini_to_clients(
     ws: WebSocket,
     session,
 ) -> None:
-    """Read responses from Gemini Live and forward to the browser WS."""
+    """Read responses from Gemini Live and forward to source + viewers."""
     while True:
         turn = session.receive()
         async for response in turn:
             # Audio data
             if data := response.data:
-                # Send raw PCM audio as base64 to browser
-                await ws.send_text(json.dumps({
+                payload = {
                     "type": "audio",
                     "data": base64.b64encode(data).decode("ascii"),
-                }))
+                }
+                await ws.send_text(json.dumps(payload))
+                await _broadcast_to_viewers(payload)
                 continue
 
             # Text content
             if text := response.text:
-                await ws.send_text(json.dumps({
+                payload = {
                     "type": "text",
                     "text": text,
-                }))
+                }
+                await ws.send_text(json.dumps(payload))
+                await _broadcast_to_viewers(payload)
                 continue
 
             # Check for interruption
             sc = response.server_content
             if sc and getattr(sc, "interrupted", False):
-                await ws.send_text(json.dumps({"type": "interrupted"}))
+                payload = {"type": "interrupted"}
+                await ws.send_text(json.dumps(payload))
+                await _broadcast_to_viewers(payload)
 
             # Turn complete
             sc = response.server_content
             if sc and getattr(sc, "turn_complete", False):
-                await ws.send_text(json.dumps({"type": "turn_complete"}))
+                payload = {"type": "turn_complete"}
+                await ws.send_text(json.dumps(payload))
+                await _broadcast_to_viewers(payload)
+
+
+async def _broadcast_to_viewers(payload: dict) -> None:
+    raw = json.dumps(payload)
+    async with _viewer_lock:
+        viewers = list(_viewer_clients)
+
+    stale: list[WebSocket] = []
+    for viewer in viewers:
+        try:
+            await viewer.send_text(raw)
+        except Exception:
+            stale.append(viewer)
+
+    if stale:
+        async with _viewer_lock:
+            for viewer in stale:
+                _viewer_clients.discard(viewer)

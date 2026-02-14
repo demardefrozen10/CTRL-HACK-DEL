@@ -6,3 +6,4 @@ __pycache__/
 .venv_demo/
 .env
 .DS_Store
+secrets.py

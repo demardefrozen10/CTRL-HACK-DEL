@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 /* ------------------------------------------------------------------ */
 
 type LogEntry = { id: number; time: string; text: string }
+type VoiceProvider = 'gemini' | 'elevenlabs'
 
 const MAX_LOG = 120
 const FRAME_INTERVAL_MS = 1000 // send 1 frame per second to Gemini
@@ -119,6 +120,7 @@ function createPcmPlayer(sampleRate = 24000) {
 export function DashboardPage() {
   const navigate = useNavigate()
   const username = localStorage.getItem('username') || 'User'
+  const token = localStorage.getItem('token') || ''
 
   const [connected, setConnected] = useState(false)
   const [cameraOn, setCameraOn] = useState(false)
@@ -126,6 +128,8 @@ export function DashboardPage() {
   const [transcript, setTranscript] = useState('')
   const [eventLog, setEventLog] = useState<LogEntry[]>([])
   const [sessionActive, setSessionActive] = useState(false)
+  const [voiceProvider, setVoiceProvider] = useState<VoiceProvider>('elevenlabs')
+  const [voiceCustomizationEnabled, setVoiceCustomizationEnabled] = useState(true)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -136,9 +140,17 @@ export function DashboardPage() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const scriptNodeRef = useRef<ScriptProcessorNode | null>(null)
   const playerRef = useRef<ReturnType<typeof createPcmPlayer> | null>(null)
+  const mp3AudioRef = useRef<HTMLAudioElement | null>(null)
+  const mp3AudioUrlRef = useRef<string | null>(null)
+  const shouldReconnectRef = useRef(true)
+  const reconnectTimerRef = useRef<number | null>(null)
 
   const apiBase = useMemo(apiBaseUrl, [])
-  const wsUrl = `${apiBase.replace(/^http/i, 'ws')}/ws/live`
+  const wsUrl = useMemo(() => {
+    const base = `${apiBase.replace(/^http/i, 'ws')}/ws/live`
+    if (!token) return base
+    return `${base}?token=${encodeURIComponent(token)}`
+  }, [apiBase, token])
 
   /* ---------- logging ---------- */
   const addLog = useCallback((text: string) => {
@@ -167,6 +179,12 @@ export function DashboardPage() {
         if (msg.type === 'session_started') {
           setSessionActive(true)
           addLog('Gemini Live session active')
+        } else if (msg.type === 'settings_ack') {
+          const nextProvider = msg.voice_provider
+          if (typeof msg.voice_customization_enabled === 'boolean') {
+            setVoiceCustomizationEnabled(msg.voice_customization_enabled)
+          }
+          addLog(`Voice provider: ${nextProvider === 'elevenlabs' ? 'ElevenLabs custom' : 'Gemini native'}`)
         } else if (msg.type === 'audio') {
           const raw = atob(msg.data as string)
           const buf = new ArrayBuffer(raw.length)
@@ -174,8 +192,31 @@ export function DashboardPage() {
           for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
           if (!playerRef.current) playerRef.current = createPcmPlayer(24000)
           playerRef.current.feed(buf)
+        } else if (msg.type === 'audio_mp3') {
+          const raw = atob(msg.data as string)
+          const bytes = new Uint8Array(raw.length)
+          for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+          if (mp3AudioRef.current) {
+            mp3AudioRef.current.pause()
+          }
+          if (mp3AudioUrlRef.current) {
+            URL.revokeObjectURL(mp3AudioUrlRef.current)
+          }
+          const blob = new Blob([bytes], { type: 'audio/mpeg' })
+          const url = URL.createObjectURL(blob)
+          mp3AudioUrlRef.current = url
+          const audio = new Audio(url)
+          mp3AudioRef.current = audio
+          void audio.play()
         } else if (msg.type === 'text') {
-          setTranscript((p) => p + (msg.text as string))
+          const chunk = String(msg.text ?? '').trim()
+          if (chunk) {
+            setTranscript((prev) => {
+              if (!prev) return chunk
+              const needsSpace = !/[\s\n]$/.test(prev) && !/^[,.;:!?)]/.test(chunk)
+              return `${prev}${needsSpace ? ' ' : ''}${chunk}`
+            })
+          }
           addLog(`Gemini: ${msg.text}`)
         } else if (msg.type === 'turn_complete') {
           setTranscript((p) => (p ? p + '\n' : p))
@@ -183,6 +224,8 @@ export function DashboardPage() {
           addLog('Gemini interrupted')
         } else if (msg.type === 'error') {
           addLog(`Error: ${msg.message}`)
+        } else if (msg.type === 'warning') {
+          addLog(`Warning: ${msg.message}`)
         }
       } catch {
         addLog('Malformed WS message')
@@ -193,20 +236,41 @@ export function DashboardPage() {
       setConnected(false)
       setSessionActive(false)
       addLog('WebSocket disconnected')
+      if (shouldReconnectRef.current) {
+        if (reconnectTimerRef.current) {
+          window.clearTimeout(reconnectTimerRef.current)
+        }
+        reconnectTimerRef.current = window.setTimeout(() => {
+          reconnectTimerRef.current = null
+          connectWs()
+        }, 1500)
+      }
     }
     socket.onerror = () => socket.close()
   }, [wsUrl, addLog])
 
   useEffect(() => {
-    if (!localStorage.getItem('token')) {
+    if (!token) {
       navigate('/')
       return
     }
+    shouldReconnectRef.current = true
     connectWs()
     return () => {
+      shouldReconnectRef.current = false
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
       wsRef.current?.close()
     }
-  }, [connectWs, navigate])
+  }, [connectWs, navigate, token])
+
+  useEffect(() => {
+    if (!connected || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
+    wsRef.current.send(JSON.stringify({ type: 'settings', voice_provider: voiceProvider }))
+    addLog(`Requested voice provider: ${voiceProvider === 'elevenlabs' ? 'ElevenLabs custom' : 'Gemini native'}`)
+  }, [voiceProvider, connected, addLog])
 
   /* ---------- Camera ---------- */
   const startCamera = useCallback(async () => {
@@ -310,13 +374,28 @@ export function DashboardPage() {
   }, [addLog])
 
   /* ---------- cleanup ---------- */
-  useEffect(() => () => { playerRef.current?.stop() }, [])
+  useEffect(
+    () => () => {
+      playerRef.current?.stop()
+      mp3AudioRef.current?.pause()
+      if (mp3AudioUrlRef.current) {
+        URL.revokeObjectURL(mp3AudioUrlRef.current)
+      }
+    },
+    [],
+  )
 
   /* ---------- actions ---------- */
   const handleLogout = () => {
+    shouldReconnectRef.current = false
+    if (reconnectTimerRef.current) {
+      window.clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
     stopCamera()
     stopMic()
     wsRef.current?.close()
+    mp3AudioRef.current?.pause()
     localStorage.removeItem('token')
     localStorage.removeItem('username')
     navigate('/')
@@ -355,6 +434,17 @@ export function DashboardPage() {
               <User className="h-4 w-4" />
               {username}
             </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-white/10 hover:bg-white/5"
+              onClick={() =>
+                setVoiceProvider((current) => (current === 'gemini' ? 'elevenlabs' : 'gemini'))
+              }
+            >
+              <Volume2 className="mr-2 h-4 w-4" />
+              Voice: {voiceProvider === 'elevenlabs' ? 'ElevenLabs' : 'Gemini'}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -448,6 +538,14 @@ export function DashboardPage() {
                 <span className="font-medium text-white">Gemini:</span>{' '}
                 {sessionActive ? '🟢 live session' : '⚫ not connected'}
               </p>
+              <p>
+                <span className="font-medium text-white">Voice Output:</span>{' '}
+                {voiceProvider === 'elevenlabs' ? '🟢 ElevenLabs custom' : '🟢 Gemini native'}
+              </p>
+              <p>
+                <span className="font-medium text-white">Voice Profile:</span>{' '}
+                {voiceCustomizationEnabled ? '🟢 linked to your account' : '⚫ login token missing'}
+              </p>
             </div>
           </Panel>
 
@@ -455,7 +553,9 @@ export function DashboardPage() {
             <div className="max-h-[200px] overflow-y-auto whitespace-pre-wrap text-sm text-white">
               {transcript || (
                 <span className="text-muted-foreground">
-                  Gemini audio responses play automatically. Text transcripts appear here.
+                  {voiceProvider === 'elevenlabs'
+                    ? 'ElevenLabs custom voice plays automatically. Transcripts appear here.'
+                    : 'Gemini native audio plays automatically. Transcripts appear here.'}
                 </span>
               )}
             </div>

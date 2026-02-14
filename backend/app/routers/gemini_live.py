@@ -86,6 +86,7 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
             await ws.close()
             return
         _source_connected = True
+    await _broadcast_to_viewers({"type": "source_connected"})
 
     if not GEMINI_API_KEY:
         await ws.send_text(json.dumps({
@@ -155,7 +156,10 @@ async def _viewer_loop(ws: WebSocket) -> None:
     logger.info("Viewer connected to /ws/live")
 
     try:
-        await ws.send_text(json.dumps({"type": "viewer_connected"}))
+        await ws.send_text(json.dumps({
+            "type": "viewer_connected",
+            "source_connected": _source_connected,
+        }))
         while True:
             raw = await ws.receive_text()
             try:
@@ -204,6 +208,7 @@ async def _forward_source_to_gemini(
         if msg_type == "video":
             # Browser sends: {"type":"video","data":"<base64 JPEG>"}
             b64_data = msg["data"]
+            await _broadcast_to_viewers({"type": "video_preview", "data": b64_data})
             await session.send_realtime_input(
                 media=types.Blob(
                     mime_type="image/jpeg",

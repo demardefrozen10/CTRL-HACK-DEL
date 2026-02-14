@@ -125,6 +125,7 @@ export function DashboardPage() {
   const [cameraOn, setCameraOn] = useState(false)
   const [micOn, setMicOn] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [piPreviewSrc, setPiPreviewSrc] = useState('')
   const [eventLog, setEventLog] = useState<LogEntry[]>([])
   const [sessionActive, setSessionActive] = useState(false)
 
@@ -137,6 +138,7 @@ export function DashboardPage() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const scriptNodeRef = useRef<ScriptProcessorNode | null>(null)
   const playerRef = useRef<ReturnType<typeof createPcmPlayer> | null>(null)
+  const previewLoggedRef = useRef(false)
 
   const apiBase = useMemo(apiBaseUrl, [])
   const wsUrl = `${apiBase.replace(/^http/i, 'ws')}/ws/live?role=${USE_PI_CAMERA ? 'viewer' : 'source'}`
@@ -167,7 +169,32 @@ export function DashboardPage() {
 
         if (msg.type === 'session_started') {
           setSessionActive(true)
+          if (USE_PI_CAMERA) setCameraOn(true)
           addLog('Gemini Live session active')
+        } else if (msg.type === 'viewer_connected') {
+          if (USE_PI_CAMERA && msg.source_connected) {
+            setCameraOn(true)
+            addLog('Viewer attached to active Pi source')
+          }
+        } else if (msg.type === 'source_connected') {
+          if (USE_PI_CAMERA) setCameraOn(true)
+          addLog('Pi source connected')
+        } else if (msg.type === 'source_disconnected') {
+          if (USE_PI_CAMERA) {
+            setCameraOn(false)
+            setPiPreviewSrc('')
+            previewLoggedRef.current = false
+          }
+          setSessionActive(false)
+          addLog('Pi source disconnected')
+        } else if (msg.type === 'video_preview') {
+          if (USE_PI_CAMERA) {
+            setPiPreviewSrc(`data:image/jpeg;base64,${msg.data as string}`)
+            if (!previewLoggedRef.current) {
+              addLog('Receiving Pi camera preview')
+              previewLoggedRef.current = true
+            }
+          }
         } else if (msg.type === 'audio') {
           const raw = atob(msg.data as string)
           const buf = new ArrayBuffer(raw.length)
@@ -252,6 +279,8 @@ export function DashboardPage() {
   const stopCamera = useCallback(() => {
     if (USE_PI_CAMERA) {
       setCameraOn(false)
+      setPiPreviewSrc('')
+      previewLoggedRef.current = false
       addLog('Pi camera mode paused')
       return
     }
@@ -392,23 +421,33 @@ export function DashboardPage() {
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         {/* Video panel */}
         <section className="relative flex min-h-[70vh] flex-col overflow-hidden rounded-xl border border-white/10 bg-black shadow-lg">
-          <video
-            ref={videoRef}
-            className="absolute inset-0 h-full w-full object-contain"
-            autoPlay
-            playsInline
-            muted
-          />
+          {USE_PI_CAMERA ? (
+            piPreviewSrc ? (
+              <img
+                src={piPreviewSrc}
+                alt="Pi camera preview"
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            ) : null
+          ) : (
+            <video
+              ref={videoRef}
+              className="absolute inset-0 h-full w-full object-contain"
+              autoPlay
+              playsInline
+              muted
+            />
+          )}
           <canvas ref={canvasRef} className="hidden" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
 
-          {!cameraOn && (
+          {(!cameraOn || (USE_PI_CAMERA && !piPreviewSrc)) && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-background/95 px-8 py-6 text-center backdrop-blur-sm">
               <Camera className="mx-auto mb-3 h-12 w-12 text-white" />
               <p className="text-xl font-semibold text-white">{USE_PI_CAMERA ? 'Pi camera mode' : 'Camera is off'}</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 {USE_PI_CAMERA
-                  ? 'Start Pi camera client on Raspberry Pi to stream frames into this dashboard session.'
+                  ? 'Waiting for Raspberry Pi frames. Run pi_camera_client.py and keep source connected.'
                   : 'Click "Start Camera" to begin streaming to Gemini Live'}
               </p>
             </div>

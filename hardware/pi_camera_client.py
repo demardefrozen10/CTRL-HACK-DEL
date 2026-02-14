@@ -20,6 +20,8 @@ BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
 BACKEND_WS_PATH = os.getenv("BACKEND_WS_PATH", "/ws/live").strip() or "/ws/live"
 PC_LAN_IP = os.getenv("PC_LAN_IP", "").strip()
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))
+CAMERA_INDEX_CANDIDATES = os.getenv("CAMERA_INDEX_CANDIDATES", "").strip()
+USE_V4L2 = os.getenv("USE_V4L2", "true").strip().lower() in {"1", "true", "yes", "on"}
 FRAME_FPS = float(os.getenv("FRAME_FPS", "1.0"))
 JPEG_QUALITY = int(os.getenv("JPEG_QUALITY", "75"))
 RECONNECT_DELAY_SEC = float(os.getenv("RECONNECT_DELAY_SEC", "3"))
@@ -47,6 +49,54 @@ def _ensure_source_role(url: str) -> str:
 
 
 RESOLVED_BACKEND_WS_URL = _ensure_source_role(_build_backend_ws_url())
+
+
+def _camera_index_candidates() -> list[int]:
+    if CAMERA_INDEX_CANDIDATES:
+        values: list[int] = []
+        for part in CAMERA_INDEX_CANDIDATES.split(","):
+            token = part.strip()
+            if not token:
+                continue
+            try:
+                values.append(int(token))
+            except ValueError:
+                continue
+        if values:
+            seen: set[int] = set()
+            ordered: list[int] = []
+            for value in values:
+                if value not in seen:
+                    seen.add(value)
+                    ordered.append(value)
+            return ordered
+
+    defaults = [CAMERA_INDEX, 0, 1, 2, 3]
+    seen: set[int] = set()
+    ordered: list[int] = []
+    for value in defaults:
+        if value not in seen:
+            seen.add(value)
+            ordered.append(value)
+    return ordered
+
+
+def _open_camera() -> cv2.VideoCapture:
+    candidates = _camera_index_candidates()
+    backend_flag = cv2.CAP_V4L2 if USE_V4L2 and hasattr(cv2, "CAP_V4L2") else None
+
+    for index in candidates:
+        capture = cv2.VideoCapture(index, backend_flag) if backend_flag is not None else cv2.VideoCapture(index)
+        if capture.isOpened():
+            print(f"[Camera] Opened camera index {index}" + (" with CAP_V4L2" if backend_flag is not None else ""))
+            return capture
+        capture.release()
+
+    raise RuntimeError(
+        f"Could not open camera. Tried indices={candidates}"
+        + (" using CAP_V4L2" if backend_flag is not None else "")
+        + ". Set CAMERA_INDEX or CAMERA_INDEX_CANDIDATES in hardware/.env."
+    )
 
 
 def _encode_frame_to_base64_jpeg(frame) -> str:
@@ -79,9 +129,7 @@ async def _recv_loop(ws: websockets.ClientConnection) -> None:
 
 
 async def _send_video_loop(ws: websockets.ClientConnection, stop_event: asyncio.Event) -> None:
-    capture = cv2.VideoCapture(CAMERA_INDEX)
-    if not capture.isOpened():
-        raise RuntimeError(f"Could not open camera index {CAMERA_INDEX}")
+    capture = _open_camera()
 
     frame_interval = 1.0 / max(FRAME_FPS, 0.1)
 
@@ -146,7 +194,8 @@ async def main() -> None:
     print(f"[Config] BACKEND_WS_URL={RESOLVED_BACKEND_WS_URL}")
     if "localhost" in RESOLVED_BACKEND_WS_URL or "127.0.0.1" in RESOLVED_BACKEND_WS_URL:
         print("[Warning] Backend URL points to localhost. On Raspberry Pi, set PC_LAN_IP or BACKEND_HOST to your PC IP.")
-    print(f"[Config] CAMERA_INDEX={CAMERA_INDEX}, FRAME_FPS={FRAME_FPS}, JPEG_QUALITY={JPEG_QUALITY}")
+    print(f"[Config] CAMERA_INDEX={CAMERA_INDEX}, CAMERA_INDEX_CANDIDATES={CAMERA_INDEX_CANDIDATES or 'auto'}, USE_V4L2={USE_V4L2}")
+    print(f"[Config] FRAME_FPS={FRAME_FPS}, JPEG_QUALITY={JPEG_QUALITY}")
     await stream_camera_to_backend(stop_event)
 
 

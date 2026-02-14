@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { CarouselPage } from '@/pages/carousel-page'
 import { DashboardPage } from '@/pages/dashboard-page'
 import { HomePage } from '@/pages/home-page'
+import { VoiceStudioPage } from '@/pages/voice-studio-page'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/carousel" element={<CarouselPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/voice-studio" element={<VoiceStudioPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

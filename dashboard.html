@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Echo-Sight Dashboard</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --fg: #FF6600;
+      --fg-dim: #CC5200;
+      --fg-bright: #FF8533;
+      --danger: #FF3300;
+      --safe: #00CC66;
+      --font: 'Courier New', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 1rem 2rem;
+      border-bottom: 2px solid var(--fg-dim);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: var(--safe); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      padding: 1rem;
+      flex: 1;
+    }
+
+    .panel {
+      border: 1px solid var(--fg-dim);
+      border-radius: 4px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--fg-dim);
+      margin-bottom: 0.75rem;
+      border-bottom: 1px solid var(--fg-dim);
+      padding-bottom: 0.25rem;
+    }
+
+    /* Video Feed */
+    #video-feed {
+      width: 100%;
+      border: 1px solid var(--fg-dim);
+      background: #111;
+    }
+
+    /* Detection Canvas */
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #0a0a0a;
+      border: 1px solid var(--fg-dim);
+    }
+    #detection-canvas {
+      width: 100%; height: 100%;
+    }
+
+    /* Haptic Gauge */
+    .haptic-bar-wrap {
+      width: 100%;
+      height: 2rem;
+      background: #111;
+      border: 1px solid var(--fg-dim);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+    #haptic-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--fg);
+      transition: width 0.3s, background 0.3s;
+    }
+    #haptic-value {
+      font-size: 2rem;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    /* Log */
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      max-height: 300px;
+    }
+    .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid #1a1a1a;
+      word-break: break-word;
+    }
+    .log-entry .ts {
+      color: var(--fg-dim);
+      margin-right: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="status-dot" id="status-dot"></div>
+    <h1>Echo-Sight</h1>
+  </header>
+
+  <div class="main-grid">
+    <!-- Video Panel -->
+    <div class="panel">
+      <div class="panel-title">Live Feed — 30 FPS</div>
+      <img id="video-feed" src="/video_feed" alt="Live camera feed" />
+    </div>
+
+    <!-- Detection Map -->
+    <div class="panel">
+      <div class="panel-title">Detection Map</div>
+      <div class="canvas-wrap">
+        <canvas id="detection-canvas" width="1000" height="750"></canvas>
+      </div>
+    </div>
+
+    <!-- Haptic Gauge -->
+    <div class="panel">
+      <div class="panel-title">Haptic Intensity</div>
+      <div id="haptic-value">0</div>
+      <div class="haptic-bar-wrap">
+        <div id="haptic-bar"></div>
+      </div>
+    </div>
+
+    <!-- Voice + Log -->
+    <div class="panel">
+      <div class="panel-title">Voice Prompt Log</div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const statusDot = document.getElementById("status-dot");
+    const hapticBar = document.getElementById("haptic-bar");
+    const hapticValue = document.getElementById("haptic-value");
+    const logEl = document.getElementById("log");
+    const canvas = document.getElementById("detection-canvas");
+    const ctx = canvas.getContext("2d");
+
+    let ws;
+
+    function connect() {
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(proto + "//" + location.host + "/ws");
+
+      ws.onopen = function () {
+        statusDot.classList.add("connected");
+        addLog("WebSocket connected");
+      };
+
+      ws.onclose = function () {
+        statusDot.classList.remove("connected");
+        addLog("WebSocket disconnected — retrying in 2s");
+        setTimeout(connect, 2000);
+      };
+
+      ws.onerror = function () {
+        ws.close();
+      };
+
+      ws.onmessage = function (event) {
+        try {
+          const data = JSON.parse(event.data);
+          updateHaptic(data.haptic_intensity || 0);
+          drawDetections(data.detections || []);
+          if (data.voice_prompt) {
+            addLog(data.voice_prompt);
+          }
+        } catch (e) {
+          console.error("WS parse error:", e);
+        }
+      };
+    }
+
+    function updateHaptic(val) {
+      const pct = (val / 255) * 100;
+      hapticBar.style.width = pct + "%";
+      hapticValue.textContent = val;
+
+      if (val > 200) {
+        hapticBar.style.background = "#FF3300";
+      } else if (val > 100) {
+        hapticBar.style.background = "#FF6600";
+      } else {
+        hapticBar.style.background = "#00CC66";
+      }
+    }
+
+    function drawDetections(detections) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      detections.forEach(function (d) {
+        const x = (d.x / 1000) * canvas.width;
+        const y = (d.y / 1000) * canvas.height;
+        const danger = d.danger || 0;
+
+        // Color by danger level
+        const r = Math.min(255, danger);
+        const g = Math.max(0, 255 - danger);
+        const color = "rgb(" + r + "," + g + ",0)";
+
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.8;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        ctx.strokeStyle = "#FF6600";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = "#FF6600";
+        ctx.font = "bold 14px Courier New";
+        ctx.fillText(d.label || "?", x + 16, y + 5);
+      });
+    }
+
+    function addLog(msg) {
+      const entry = document.createElement("div");
+      entry.className = "log-entry";
+      const now = new Date().toLocaleTimeString();
+      entry.innerHTML = "<span class=\"ts\">" + now + "</span>" + msg;
+      logEl.prepend(entry);
+
+      // Keep max 50 entries
+      while (logEl.children.length > 50) {
+        logEl.removeChild(logEl.lastChild);
+      }
+    }
+
+    connect();
+  </script>
+</body>
+</html>

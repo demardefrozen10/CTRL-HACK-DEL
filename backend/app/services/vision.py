@@ -33,6 +33,7 @@ Rules:
 _model = None
 _tick = 0
 _no_key_warned = False
+_prev_gray: Optional[np.ndarray] = None
 
 
 def _get_model():
@@ -100,22 +101,76 @@ def _sanitize(data: Any) -> Optional[dict[str, Any]]:
     return {"voice_prompt": voice, "detections": detections, "haptic_intensity": haptic}
 
 
-def _simulate() -> dict[str, Any]:
-    """Generate simulated analysis data when Gemini is unavailable."""
-    global _tick
-    _tick += 1
-    phase = _tick % 8
+def _clock_from_x(normalized_center_x: float) -> str:
+    if normalized_center_x < 0.2:
+        return "10 o'clock"
+    if normalized_center_x < 0.4:
+        return "11 o'clock"
+    if normalized_center_x < 0.6:
+        return "12 o'clock"
+    if normalized_center_x < 0.8:
+        return "1 o'clock"
+    return "2 o'clock"
 
-    if phase in (0, 1):
+
+def _fallback_motion_inference(frame: np.ndarray) -> dict[str, Any]:
+    """Infer obstacle location/intensity from frame motion when Gemini is unavailable."""
+    global _prev_gray, _tick
+
+    _tick += 1
+    height, width = frame.shape[:2]
+    if height == 0 or width == 0:
         return {"voice_prompt": "Path is clear", "detections": [], "haptic_intensity": 0}
 
-    x = 170 + ((_tick * 110) % 620)
-    xmin = max(0, x - 85)
-    xmax = min(1000, x + 85)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (9, 9), 0)
+
+    if _prev_gray is None or _prev_gray.shape != gray.shape:
+        _prev_gray = gray
+        return {"voice_prompt": "Scanning surroundings", "detections": [], "haptic_intensity": 0}
+
+    delta = cv2.absdiff(gray, _prev_gray)
+    _prev_gray = gray
+
+    _, thresh = cv2.threshold(delta, 22, 255, cv2.THRESH_BINARY)
+    thresh = cv2.dilate(thresh, None, iterations=2)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    frame_area = float(width * height)
+    min_area = max(1200.0, frame_area * 0.003)
+    largest = None
+    largest_area = 0.0
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area > min_area and area > largest_area:
+            largest = contour
+            largest_area = area
+
+    if largest is None:
+        return {"voice_prompt": "Path is clear", "detections": [], "haptic_intensity": 0}
+
+    x, y, w, h = cv2.boundingRect(largest)
+    ymin = int((y / height) * 1000)
+    xmin = int((x / width) * 1000)
+    ymax = int(((y + h) / height) * 1000)
+    xmax = int(((x + w) / width) * 1000)
+    ymin = max(0, min(1000, ymin))
+    xmin = max(0, min(1000, xmin))
+    ymax = max(0, min(1000, ymax))
+    xmax = max(0, min(1000, xmax))
+
+    center_x_norm = (x + (w / 2.0)) / width
+    clock = _clock_from_x(center_x_norm)
+
+    area_ratio = (w * h) / frame_area
+    bottom_ratio = (y + h) / height
+    proximity = max(0.0, min(1.0, (0.42 * min(1.0, area_ratio * 8.0)) + (0.58 * bottom_ratio)))
+    haptic_intensity = max(35, min(255, int(35 + proximity * 220)))
+
     return {
-        "voice_prompt": "Obstacle at 12 o'clock",
-        "detections": [{"label": "obstacle", "box": [360, xmin, 980, xmax]}],
-        "haptic_intensity": 165,
+        "voice_prompt": f"Obstacle at {clock}",
+        "detections": [{"label": "obstacle", "box": [ymin, xmin, ymax, xmax]}],
+        "haptic_intensity": haptic_intensity,
     }
 
 
@@ -126,7 +181,9 @@ def analyze_frame_sync(frame: np.ndarray) -> Optional[dict[str, Any]]:
 
     model = _get_model()
     if model is None:
-        return _simulate()
+        fallback = _fallback_motion_inference(frame)
+        fallback["ts"] = time.time()
+        return fallback
 
     ok, jpg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 72])
     if not ok:
@@ -151,10 +208,14 @@ def analyze_frame_sync(frame: np.ndarray) -> Optional[dict[str, Any]]:
         if data:
             data["ts"] = time.time()
             return data
-        return _simulate()
+        fallback = _fallback_motion_inference(frame)
+        fallback["ts"] = time.time()
+        return fallback
     except Exception as e:
         print(f"[Vision] Analysis error: {e}")
-        return _simulate()
+        fallback = _fallback_motion_inference(frame)
+        fallback["ts"] = time.time()
+        return fallback
 
 
 async def analyze_frame_async(frame: Optional[np.ndarray] = None) -> Optional[dict[str, Any]]:
@@ -177,6 +238,7 @@ async def inference_loop() -> None:
             if result:
                 voice_prompt = result.get("voice_prompt", "")
                 haptic = int(result.get("haptic_intensity", 0))
+                await set_latest_analysis(result)
                 
                 # Send haptic feedback
                 await asyncio.to_thread(send_intensity, haptic)

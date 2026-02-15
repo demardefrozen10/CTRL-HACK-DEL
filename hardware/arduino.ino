@@ -1,13 +1,13 @@
 const int trigPin = 5;
 const int echoPin = 4;
-const int buzzerPin = 3; 
+const int buzzerPin = 3;
 
-// VOLUME SETTING: 5 is whisper, 255 is loud.
-int volume = 15; 
+// VOLUME CONTROL (0-255)
+// 5 is quiet (good for ear), 100 is loud.
+int volume = 20; 
 
 void setup() {
-  // Increased to 115200 for faster communication with the Pi
-  Serial.begin(115200); 
+  Serial.begin(115200); // Faster communication just in case
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
   pinMode(buzzerPin, OUTPUT);
@@ -15,37 +15,39 @@ void setup() {
 
 void loop() {
   long duration, distance;
-  
-  // 1. Trigger the sensor
-  digitalWrite(trigPin, LOW); 
+
+  // 1. Measure Distance
+  digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
-  
-  // 2. Measure the bounce back
+
   duration = pulseIn(echoPin, HIGH);
   distance = (duration / 2) / 29.1;
 
-  // 3. Data Cleanup & Export
-  // Only send valid distances (ignore 0 or ghost readings over 4 meters)
-  if (distance > 2 && distance < 400) {
-    Serial.println(distance); 
-  }
+  Serial.println(distance); // Helpful for debugging
 
-  // 4. Smart Haptic/Audio Feedback
-  // If an object is closer than 50cm
+  // 2. The "Heartbeat" Logic
   if (distance > 0 && distance < 50) {
-    // Map the distance to a pause: Closer = Faster beeps!
-    // 0cm -> 40ms pause | 50cm -> 200ms pause
-    int pauseTime = map(distance, 0, 50, 40, 200);
     
+    // Calculate the delay based on distance
+    // Closer = Shorter Delay (Faster Beeps)
+    // 5cm away = 50ms delay (Fast!)
+    // 50cm away = 600ms delay (Slow)
+    int heartbeatDelay = map(distance, 0, 50, 50, 600);
+    heartbeatDelay = constrain(heartbeatDelay, 50, 600); // Safety cap
+
+    // The "Thump"
     analogWrite(buzzerPin, volume); 
-    delay(60); // Duration of the beep
-    analogWrite(buzzerPin, 0); 
-    delay(pauseTime); 
+    delay(50); // Short, sharp beep (50ms)
+    
+    // The "Rest"
+    analogWrite(buzzerPin, 0);
+    delay(heartbeatDelay); // Variable wait time
+
   } else {
-    // Idle state: just a small delay to keep the loop stable
+    // Silence if clear
     analogWrite(buzzerPin, 0);
     delay(100); 
   }

@@ -18,6 +18,7 @@ from app.routers.tts import router as app_tts_router
 from app.routers.vision import router as app_vision_router
 from app.routers.voice_studio import router as app_voice_studio_router
 from app.routers.gemini_live import router as gemini_live_router
+from app.routers.gemini_live import router as gemini_live_router
 from app.services import close_haptic as app_close_haptic
 from app.services import frame_buffer as app_frame_buffer
 from app.services.vision import inference_loop as app_inference_loop
@@ -165,6 +166,7 @@ app.include_router(app_tts_router)
 app.include_router(app_haptic_router)
 app.include_router(app_stream_router)
 app.include_router(app_voice_studio_router)
+app.include_router(gemini_live_router)
 app.include_router(gemini_live_router)
 
 

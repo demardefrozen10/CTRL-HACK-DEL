@@ -498,35 +498,39 @@ export function VoiceStudioPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_10%_0%,#3f240f_0%,#1a0f07_42%,#0f0905_100%)] text-[#fff2dd]">
-      <header className="border-b border-[#f8b15f]/50 bg-[#1a0f07]/95 px-5 py-4 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4">
+    <main className="min-h-screen bg-background text-foreground">
+      <header className="border-b border-border bg-background px-6 py-4 shadow-sm">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[#ffd6a2]">S.E.N.S.E.</p>
-            <h1 className="text-2xl font-semibold text-[#fff2dd]">Voice Studio</h1>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              S.E.N.S.E.
+            </p>
+            <h1 className="text-2xl font-semibold text-foreground">Voice Studio</h1>
           </div>
           <Button
             aria-label="Back to dashboard"
             onClick={() => navigate('/dashboard')}
-            className="h-11 border border-[#ffd6a2]/60 bg-[#2d1808] px-5 text-[#fff1da] hover:bg-[#47270f] focus-visible:ring-2 focus-visible:ring-[#ffe3c0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1a0f07]"
+            variant="outline"
+            size="sm"
+            className="h-11 px-5"
           >
-            <ArrowLeft className="mr-2 h-5 w-5" />
+            <ArrowLeft className="mr-2 h-5 w-5" aria-hidden="true" />
             Back to Dashboard
           </Button>
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-6 p-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <section className="space-y-5 rounded-2xl border border-[#f8b15f]/50 bg-[#1e1109]/90 p-5">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 p-6 lg:grid-cols-[24rem_minmax(0,1fr)]">
+        <section className="space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-[#ffd6a2]" />
-            <h2 className="text-lg font-semibold text-[#ffe9c8]">Voice Filters</h2>
+            <Filter className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+            <h2 className="text-lg font-semibold text-foreground">Voice Filters</h2>
           </div>
 
           <fieldset className="space-y-3">
             <legend className="sr-only">Voice metadata filters</legend>
 
-            <label htmlFor="quality-filter" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="quality-filter" className="block text-sm font-medium text-muted-foreground">
               Quality
             </label>
             <select
@@ -534,13 +538,13 @@ export function VoiceStudioPage() {
               aria-label="Filter voices by quality"
               value={filters.quality}
               onChange={(event) => setFilters((current) => ({ ...current, quality: event.target.value as Filters['quality'] }))}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               <option value="any">Any</option>
               <option value="hq">HQ</option>
             </select>
 
-            <label htmlFor="gender-filter" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="gender-filter" className="block text-sm font-medium text-muted-foreground">
               Gender
             </label>
             <select
@@ -548,7 +552,7 @@ export function VoiceStudioPage() {
               aria-label="Filter voices by gender"
               value={filters.gender}
               onChange={(event) => setFilters((current) => ({ ...current, gender: event.target.value as Filters['gender'] }))}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               <option value="any">Any</option>
               <option value="male">Male</option>
@@ -556,7 +560,7 @@ export function VoiceStudioPage() {
               <option value="neutral">Neutral</option>
             </select>
 
-            <label htmlFor="age-filter" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="age-filter" className="block text-sm font-medium text-muted-foreground">
               Age
             </label>
             <select
@@ -564,7 +568,7 @@ export function VoiceStudioPage() {
               aria-label="Filter voices by age"
               value={filters.age}
               onChange={(event) => setFilters((current) => ({ ...current, age: event.target.value as Filters['age'] }))}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               <option value="any">Any</option>
               <option value="young">Young</option>
@@ -572,7 +576,7 @@ export function VoiceStudioPage() {
               <option value="old">Old</option>
             </select>
 
-            <label htmlFor="notice-filter" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="notice-filter" className="block text-sm font-medium text-muted-foreground">
               Notice Period
             </label>
             <select
@@ -582,7 +586,7 @@ export function VoiceStudioPage() {
               onChange={(event) =>
                 setFilters((current) => ({ ...current, notice_period: event.target.value as Filters['notice_period'] }))
               }
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               <option value="any">Any</option>
               <option value="30d">30d</option>
@@ -590,7 +594,10 @@ export function VoiceStudioPage() {
               <option value="1y">1y</option>
             </select>
 
-            <label htmlFor="custom-rates-filter" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="custom-rates-filter"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Custom Rates
             </label>
             <select
@@ -600,14 +607,17 @@ export function VoiceStudioPage() {
               onChange={(event) =>
                 setFilters((current) => ({ ...current, custom_rates: event.target.value as InclusionFilter }))
               }
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               <option value="any">Any</option>
               <option value="include">Include</option>
               <option value="exclude">Exclude</option>
             </select>
 
-            <label htmlFor="live-moderation-filter" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="live-moderation-filter"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Live Moderation
             </label>
             <select
@@ -617,7 +627,7 @@ export function VoiceStudioPage() {
               onChange={(event) =>
                 setFilters((current) => ({ ...current, live_moderation: event.target.value as InclusionFilter }))
               }
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               <option value="any">Any</option>
               <option value="include">Include</option>
@@ -625,13 +635,16 @@ export function VoiceStudioPage() {
             </select>
           </fieldset>
 
-          <div className="space-y-3 border-t border-[#f8b15f]/35 pt-4">
+          <div className="space-y-4 border-t border-border pt-6">
             <div className="flex items-center gap-2">
-              <SlidersHorizontal className="h-5 w-5 text-[#ffd6a2]" />
-              <h3 className="text-base font-semibold text-[#ffe8c8]">Voice Tuning</h3>
+              <SlidersHorizontal className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+              <h3 className="text-base font-semibold text-foreground">Voice Tuning</h3>
             </div>
 
-            <label htmlFor="stability-slider" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="stability-slider"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Stability: {stability.toFixed(2)}
             </label>
             <input
@@ -643,10 +656,10 @@ export function VoiceStudioPage() {
               step={0.01}
               value={stability}
               onChange={(event) => setStability(Number(event.target.value))}
-              className="w-full accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
-            <label htmlFor="clarity-slider" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="clarity-slider" className="block text-sm font-medium text-muted-foreground">
               Clarity: {clarity.toFixed(2)}
             </label>
             <input
@@ -658,10 +671,10 @@ export function VoiceStudioPage() {
               step={0.01}
               value={clarity}
               onChange={(event) => setClarity(Number(event.target.value))}
-              className="w-full accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
-            <label htmlFor="style-slider" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="style-slider" className="block text-sm font-medium text-muted-foreground">
               Style Exaggeration: {styleExaggeration.toFixed(2)}
             </label>
             <input
@@ -673,10 +686,10 @@ export function VoiceStudioPage() {
               step={0.01}
               value={styleExaggeration}
               onChange={(event) => setStyleExaggeration(Number(event.target.value))}
-              className="w-full accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
-            <label htmlFor="speed-slider" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="speed-slider" className="block text-sm font-medium text-muted-foreground">
               Playback Speed: {playbackSpeed.toFixed(2)}x
             </label>
             <input
@@ -688,14 +701,14 @@ export function VoiceStudioPage() {
               step={0.05}
               value={playbackSpeed}
               onChange={(event) => setPlaybackSpeed(Number(event.target.value))}
-              className="w-full accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
           </div>
 
-          <div className="space-y-3 border-t border-[#f8b15f]/35 pt-4">
-            <h3 className="text-base font-semibold text-[#ffe8c8]">ElevenLabs Advanced</h3>
+          <div className="space-y-4 border-t border-border pt-6">
+            <h3 className="text-base font-semibold text-foreground">ElevenLabs Advanced</h3>
 
-            <label htmlFor="model-id" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="model-id" className="block text-sm font-medium text-muted-foreground">
               Model
             </label>
             <select
@@ -703,7 +716,7 @@ export function VoiceStudioPage() {
               aria-label="ElevenLabs model selection"
               value={modelId}
               onChange={(event) => setModelId(event.target.value)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               {modelOptions.map((option) => (
                 <option key={option} value={option}>
@@ -712,7 +725,10 @@ export function VoiceStudioPage() {
               ))}
             </select>
 
-            <label htmlFor="output-format" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="output-format"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Output Format
             </label>
             <select
@@ -720,7 +736,7 @@ export function VoiceStudioPage() {
               aria-label="ElevenLabs output audio format"
               value={outputFormat}
               onChange={(event) => setOutputFormat(event.target.value)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               {outputFormatOptions.map((option) => (
                 <option key={option} value={option}>
@@ -729,7 +745,10 @@ export function VoiceStudioPage() {
               ))}
             </select>
 
-            <label htmlFor="latency-setting" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="latency-setting"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Optimize Streaming Latency
             </label>
             <select
@@ -737,7 +756,7 @@ export function VoiceStudioPage() {
               aria-label="ElevenLabs optimize streaming latency level"
               value={optimizeStreamingLatency}
               onChange={(event) => setOptimizeStreamingLatency(event.target.value)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               {latencyOptions.map((option) => (
                 <option key={option} value={option}>
@@ -746,7 +765,10 @@ export function VoiceStudioPage() {
               ))}
             </select>
 
-            <label htmlFor="text-normalization" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="text-normalization"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Text Normalization
             </label>
             <select
@@ -759,7 +781,7 @@ export function VoiceStudioPage() {
                   setTextNormalization(value)
                 }
               }}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             >
               {textNormalizationOptions.map((option) => (
                 <option key={option} value={option}>
@@ -768,7 +790,10 @@ export function VoiceStudioPage() {
               ))}
             </select>
 
-            <label htmlFor="language-code" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="language-code"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Language Code (Optional)
             </label>
             <input
@@ -778,10 +803,10 @@ export function VoiceStudioPage() {
               value={languageCode}
               onChange={(event) => setLanguageCode(event.target.value)}
               placeholder="en"
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
-            <label htmlFor="seed-input" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="seed-input" className="block text-sm font-medium text-muted-foreground">
               Seed (Optional, integer)
             </label>
             <input
@@ -790,44 +815,44 @@ export function VoiceStudioPage() {
               type="number"
               value={seedInput}
               onChange={(event) => setSeedInput(event.target.value)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="flex items-center gap-2 text-sm text-[#ffe0b8]">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input
                   aria-label="Enable speaker boost for ElevenLabs voice"
                   type="checkbox"
                   checked={useSpeakerBoost}
                   onChange={(event) => setUseSpeakerBoost(event.target.checked)}
-                  className="h-4 w-4 rounded border-[#f8b15f]/60 bg-[#120a05] accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                  className="h-4 w-4 rounded border border-input bg-background accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
                 />
                 Speaker Boost
               </label>
-              <label className="flex items-center gap-2 text-sm text-[#ffe0b8]">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input
                   aria-label="Enable ElevenLabs request logging"
                   type="checkbox"
                   checked={enableLogging}
                   onChange={(event) => setEnableLogging(event.target.checked)}
-                  className="h-4 w-4 rounded border-[#f8b15f]/60 bg-[#120a05] accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                  className="h-4 w-4 rounded border border-input bg-background accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
                 />
                 API Logging
               </label>
-              <label className="flex items-center gap-2 text-sm text-[#ffe0b8] sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
                 <input
                   aria-label="Use ElevenLabs streaming endpoint for preview"
                   type="checkbox"
                   checked={streamPreview}
                   onChange={(event) => setStreamPreview(event.target.checked)}
-                  className="h-4 w-4 rounded border-[#f8b15f]/60 bg-[#120a05] accent-[#ffbe74] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                  className="h-4 w-4 rounded border border-input bg-background accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
                 />
                 Use Streaming Endpoint for Preview
               </label>
             </div>
           </div>
 
-          <label htmlFor="preview-text" className="block text-sm text-[#ffe0b8]">
+          <label htmlFor="preview-text" className="block text-sm font-medium text-muted-foreground">
             Preview Text
           </label>
           <textarea
@@ -835,7 +860,7 @@ export function VoiceStudioPage() {
             aria-label="Text used for voice preview playback"
             value={previewText}
             onChange={(event) => setPreviewText(event.target.value)}
-            className="h-24 w-full resize-none rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-sm text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+            className="h-24 w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
           />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -843,29 +868,33 @@ export function VoiceStudioPage() {
               aria-label="Save selected voice profile"
               onClick={saveProfile}
               disabled={saving || !selectedVoiceId}
-              className="h-11 bg-[#ffbe74] text-[#2d1607] hover:bg-[#ffd29a] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="h-11"
             >
-              <CheckCircle2 className="mr-2 h-5 w-5" />
+              <CheckCircle2 className="mr-2 h-5 w-5" aria-hidden="true" />
               {saving ? 'Saving...' : 'Save Profile'}
             </Button>
             <Button
               aria-label="Preview currently selected voice"
               onClick={() => previewVoice(selectedVoiceId)}
               disabled={!selectedVoiceId || previewingVoiceId !== null}
-              className="h-11 border border-[#f8b15f]/60 bg-[#2d1808] text-[#fff1da] hover:bg-[#47270f] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              variant="outline"
+              className="h-11"
             >
-              <Volume2 className="mr-2 h-5 w-5" />
+              <Volume2 className="mr-2 h-5 w-5" aria-hidden="true" />
               {previewingVoiceId ? 'Playing...' : 'Preview Selected'}
             </Button>
           </div>
 
-          <div className="space-y-3 border-t border-[#f8b15f]/35 pt-4">
-            <h3 className="text-base font-semibold text-[#ffe8c8]">Accessibility Audio Tools</h3>
-            <p className="text-xs text-[#ffd7a3]">
+          <div className="space-y-4 border-t border-border pt-6">
+            <h3 className="text-base font-semibold text-foreground">Accessibility Audio Tools</h3>
+            <p className="text-xs text-muted-foreground">
               Run speech-to-speech, voice changer, sound effects, and dubbing from this panel.
             </p>
 
-            <label htmlFor="transform-audio-file" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="transform-audio-file"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Source Audio File (for speech-to-speech / voice changer)
             </label>
             <input
@@ -874,10 +903,10 @@ export function VoiceStudioPage() {
               type="file"
               accept="audio/*"
               onChange={(event) => setTransformFile(event.target.files?.[0] ?? null)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-sm text-[#fff3de] file:mr-3 file:rounded-md file:border-0 file:bg-[#ffbe74] file:px-3 file:py-1 file:text-sm file:font-semibold file:text-[#2d1607] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full cursor-pointer rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-foreground file:px-3 file:py-1 file:text-sm file:font-semibold file:text-background hover:file:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
-            <label htmlFor="sts-model-id" className="block text-sm text-[#ffe0b8]">
+            <label htmlFor="sts-model-id" className="block text-sm font-medium text-muted-foreground">
               Speech/Voice-Changer Model
             </label>
             <input
@@ -886,7 +915,7 @@ export function VoiceStudioPage() {
               type="text"
               value={stsModelId}
               onChange={(event) => setStsModelId(event.target.value)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -894,7 +923,8 @@ export function VoiceStudioPage() {
                 aria-label="Run ElevenLabs speech to speech conversion"
                 onClick={() => runTransformTool('s2s')}
                 disabled={toolBusy !== 'none'}
-                className="h-10 border border-[#f8b15f]/60 bg-[#2d1808] text-[#fff1da] hover:bg-[#47270f] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                variant="outline"
+                className="h-10"
               >
                 {toolBusy === 's2s' ? 'Converting...' : 'Speech-to-Speech'}
               </Button>
@@ -902,13 +932,17 @@ export function VoiceStudioPage() {
                 aria-label="Run ElevenLabs voice changer conversion"
                 onClick={() => runTransformTool('changer')}
                 disabled={toolBusy !== 'none'}
-                className="h-10 border border-[#f8b15f]/60 bg-[#2d1808] text-[#fff1da] hover:bg-[#47270f] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                variant="outline"
+                className="h-10"
               >
                 {toolBusy === 'changer' ? 'Converting...' : 'Voice Changer'}
               </Button>
             </div>
 
-            <label htmlFor="sound-effect-text" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="sound-effect-text"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Sound Effect Prompt
             </label>
             <input
@@ -917,18 +951,22 @@ export function VoiceStudioPage() {
               type="text"
               value={effectText}
               onChange={(event) => setEffectText(event.target.value)}
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
             <Button
               aria-label="Generate sound effect"
               onClick={runSoundEffects}
               disabled={toolBusy !== 'none'}
-              className="h-10 border border-[#f8b15f]/60 bg-[#2d1808] text-[#fff1da] hover:bg-[#47270f] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              variant="outline"
+              className="h-10"
             >
               {toolBusy === 'sfx' ? 'Generating...' : 'Generate Sound Effect'}
             </Button>
 
-            <label htmlFor="dubbing-source-url" className="block text-sm text-[#ffe0b8]">
+            <label
+              htmlFor="dubbing-source-url"
+              className="block text-sm font-medium text-muted-foreground"
+            >
               Dubbing Source URL
             </label>
             <input
@@ -938,11 +976,14 @@ export function VoiceStudioPage() {
               value={dubbingSourceUrl}
               onChange={(event) => setDubbingSourceUrl(event.target.value)}
               placeholder="https://example.com/video.mp4"
-              className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <div>
-                <label htmlFor="dubbing-target-lang" className="block text-sm text-[#ffe0b8]">
+                <label
+                  htmlFor="dubbing-target-lang"
+                  className="block text-sm font-medium text-muted-foreground"
+                >
                   Target Language
                 </label>
                 <input
@@ -952,11 +993,14 @@ export function VoiceStudioPage() {
                   value={dubbingTargetLang}
                   onChange={(event) => setDubbingTargetLang(event.target.value)}
                   placeholder="en"
-                  className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
                 />
               </div>
               <div>
-                <label htmlFor="dubbing-source-lang" className="block text-sm text-[#ffe0b8]">
+                <label
+                  htmlFor="dubbing-source-lang"
+                  className="block text-sm font-medium text-muted-foreground"
+                >
                   Source Language (Optional)
                 </label>
                 <input
@@ -966,7 +1010,7 @@ export function VoiceStudioPage() {
                   value={dubbingSourceLang}
                   onChange={(event) => setDubbingSourceLang(event.target.value)}
                   placeholder="auto"
-                  className="w-full rounded-lg border border-[#f8b15f]/50 bg-[#120a05] px-3 py-2 text-[#fff3de] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
                 />
               </div>
             </div>
@@ -974,7 +1018,8 @@ export function VoiceStudioPage() {
               aria-label="Create ElevenLabs dubbing job"
               onClick={runDubbing}
               disabled={toolBusy !== 'none'}
-              className="h-10 border border-[#f8b15f]/60 bg-[#2d1808] text-[#fff1da] hover:bg-[#47270f] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+              variant="outline"
+              className="h-10"
             >
               {toolBusy === 'dubbing' ? 'Submitting...' : 'Start Dubbing'}
             </Button>
@@ -982,7 +1027,7 @@ export function VoiceStudioPage() {
             {lastDubbingResult && (
               <pre
                 aria-label="Latest dubbing response payload"
-                className="max-h-40 overflow-auto rounded-lg border border-[#f8b15f]/40 bg-[#120a05] p-3 text-xs text-[#ffe6bf]"
+                className="max-h-40 overflow-auto rounded-lg border border-border bg-background p-3 text-xs text-foreground"
               >
                 {JSON.stringify(lastDubbingResult, null, 2)}
               </pre>
@@ -990,11 +1035,11 @@ export function VoiceStudioPage() {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-2xl border border-[#f8b15f]/50 bg-[#1e1109]/90 p-5">
+        <section className="space-y-6 rounded-xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-end justify-between gap-3">
             <div>
-              <h2 className="text-xl font-semibold text-[#fff0d2]">Available Voices</h2>
-              <p className="text-sm text-[#ffd7a3]">
+              <h2 className="text-xl font-semibold text-foreground">Available Voices</h2>
+              <p className="text-sm text-muted-foreground">
                 {filteredVoices.length} of {voices.length} voices match your filters
               </p>
             </div>
@@ -1005,21 +1050,21 @@ export function VoiceStudioPage() {
             tabIndex={-1}
             role="status"
             aria-live="polite"
-            className="rounded-lg border border-[#f8b15f]/40 bg-[#2b1709] px-3 py-2 text-sm text-[#ffe6bf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background"
           >
             {statusMessage}
           </div>
 
           {loading ? (
-            <p className="py-10 text-center text-[#ffdcb0]">Loading voices...</p>
+            <p className="py-10 text-center text-muted-foreground">Loading voices...</p>
           ) : filteredVoices.length === 0 ? (
-            <p className="py-10 text-center text-[#ffdcb0]">No voices match current filters.</p>
+            <p className="py-10 text-center text-muted-foreground">No voices match current filters.</p>
           ) : (
-            <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {filteredVoices.map((voice) => {
                 const isSelected = selectedVoiceId === voice.voice_id
                 return (
-                  <li key={voice.voice_id} className="rounded-xl border border-[#f8b15f]/30 bg-[#180d06] p-3">
+                  <li key={voice.voice_id} className="rounded-xl border border-border bg-background p-4">
                     <button
                       type="button"
                       aria-label={`Select voice ${voice.name}`}
@@ -1028,24 +1073,24 @@ export function VoiceStudioPage() {
                         setSelectedVoiceId(voice.voice_id)
                         announce(`Selected voice: ${voice.name}`)
                       }}
-                      className={`w-full rounded-lg border px-3 py-3 text-left transition ${
+                      className={`w-full rounded-lg border px-4 py-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background ${
                         isSelected
-                          ? 'border-[#ffd6a2] bg-[#3a200d]'
-                          : 'border-[#f8b15f]/30 bg-[#241208] hover:bg-[#342010]'
-                      } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe3c0]`}
+                          ? 'border-accent bg-background'
+                          : 'border-border bg-card hover:bg-background'
+                      }`}
                     >
-                      <p className="text-lg font-semibold text-[#fff0d5]">{voice.name}</p>
-                      <p className="mt-1 text-sm text-[#ffdcb2]">
+                      <p className="text-lg font-semibold text-foreground">{voice.name}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
                         {prettyLabel(voice.gender)} · {prettyLabel(voice.age)} · {prettyLabel(voice.quality)}
                       </p>
-                      <p className="mt-1 text-xs text-[#ffc685]">
+                      <p className="mt-1 text-xs text-muted-foreground">
                         Notice: {prettyLabel(voice.notice_period)} | Custom Rates:{' '}
                         {voice.custom_rates === true ? 'Yes' : voice.custom_rates === false ? 'No' : 'Unknown'} |
                         Live Moderation:{' '}
                         {voice.live_moderation === true ? 'Yes' : voice.live_moderation === false ? 'No' : 'Unknown'}
                       </p>
                       {voice.descriptive && (
-                        <p className="mt-2 text-xs text-[#f5d6ad]">{voice.descriptive}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">{voice.descriptive}</p>
                       )}
                     </button>
 
@@ -1054,9 +1099,11 @@ export function VoiceStudioPage() {
                         aria-label={`Preview voice ${voice.name}`}
                         onClick={() => previewVoice(voice.voice_id)}
                         disabled={previewingVoiceId !== null}
-                        className="h-9 border border-[#f8b15f]/50 bg-[#3a1f0e] text-[#ffe4bc] hover:bg-[#4d2a13] focus-visible:ring-2 focus-visible:ring-[#ffe3c0]"
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
                       >
-                        <Volume2 className="mr-2 h-4 w-4" />
+                        <Volume2 className="mr-2 h-4 w-4" aria-hidden="true" />
                         {previewingVoiceId === voice.voice_id ? 'Playing...' : 'Preview'}
                       </Button>
                     </div>

@@ -11,13 +11,26 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from dataclasses import dataclass
 import json
 import logging
 import os
+import re
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from google import genai
-from google.genai import types
+from ..auth import get_user_from_token
+from ..config import GEMINI_API_KEY as CONFIG_GEMINI_API_KEY
+from ..database import SessionLocal
+from ..services.tts import synthesize_async
+
+try:
+    from google import genai
+    from google.genai import types
+    _genai_import_error: str | None = None
+except Exception as exc:
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
+    _genai_import_error = str(exc)
 
 logger = logging.getLogger("echo-sight.gemini-live")
 
@@ -26,26 +39,40 @@ router = APIRouter(tags=["gemini-live"])
 # ---------------------------------------------------------------------------
 # Gemini Live session configuration
 # ---------------------------------------------------------------------------
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 MODEL = "gemini-2.5-flash-native-audio-latest"
 
-SYSTEM_INSTRUCTION = (
-    "You are Echo-Sight, a real-time accessibility assistant for visually impaired users. "
-    "You receive a live webcam video feed. Proactively describe what you see without "
-    "waiting for the user to ask. Describe obstacles, hazards, objects, and surroundings "
-    "in short, clear sentences (max 15 words). Use clock-position directions "
-    "(e.g. 'Chair at 2 o'clock, 3 feet away'). Prioritize safety-critical objects first, "
-    "then notable items. For example, if you see a bag of chips, say 'I see chips'. "
-    "Speak naturally and calmly."
+SYSTEM_INSTRUCTION = ( ""
+    
 )
 
 
-def _build_config() -> types.LiveConnectConfig:
+@dataclass
+class LiveVoiceSettings:
+    voice_provider: str = "gemini"  # "gemini" | "elevenlabs"
+
+
+def _normalize_transcript_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _build_config():
     """Build the Gemini Live session config."""
+    if types is None:
+        raise RuntimeError(
+            "google-genai package is required for Gemini Live. "
+            f"Import failure: {_genai_import_error or 'unknown'}"
+        )
     return types.LiveConnectConfig(
+        # Native-audio models accept AUDIO modality here. Text comes through
+        # output_audio_transcription and text parts in server content.
         response_modalities=["AUDIO"],
         system_instruction=types.Content(
             parts=[types.Part(text=SYSTEM_INSTRUCTION)]
+        ),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+        thinking_config=types.ThinkingConfig(
+            include_thoughts=False,
+            thinking_budget=0,
         ),
         speech_config=types.SpeechConfig(
             voice_config=types.VoiceConfig(
@@ -67,7 +94,20 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
     await ws.accept()
     logger.info("Browser connected to /ws/live")
 
-    if not GEMINI_API_KEY:
+    if genai is None:
+        await ws.send_text(json.dumps({
+            "type": "error",
+            "message": (
+                "Gemini Live dependency missing on server. "
+                "Install 'google-genai' in backend venv."
+            ),
+        }))
+        await ws.close()
+        return
+
+    # Pull from loaded config first so .env is honored even when module import order differs.
+    gemini_api_key = (CONFIG_GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")).strip()
+    if not gemini_api_key:
         await ws.send_text(json.dumps({
             "type": "error",
             "message": "GEMINI_API_KEY is not configured on the server.",
@@ -76,20 +116,47 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
         return
 
     client = genai.Client(
-        api_key=GEMINI_API_KEY,
+        api_key=gemini_api_key,
         http_options={"api_version": "v1beta"},
     )
 
     config = _build_config()
+    voice_settings = LiveVoiceSettings()
+    user_id: int | None = None
+    token = ws.query_params.get("token")
+    if token:
+        db = SessionLocal()
+        try:
+            user = get_user_from_token(db, token)
+            if user is not None:
+                user_id = int(user.id)
+        finally:
+            db.close()
 
     try:
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             logger.info("Gemini Live session opened")
             await ws.send_text(json.dumps({"type": "session_started"}))
+            await ws.send_text(
+                json.dumps(
+                    {
+                        "type": "settings_ack",
+                        "voice_provider": voice_settings.voice_provider,
+                        "voice_customization_enabled": bool(user_id is not None),
+                    }
+                )
+            )
 
             # Run send + receive concurrently
-            send_task = asyncio.create_task(_forward_browser_to_gemini(ws, session))
-            recv_task = asyncio.create_task(_forward_gemini_to_browser(ws, session))
+            send_task = asyncio.create_task(_forward_browser_to_gemini(ws, session, voice_settings))
+            recv_task = asyncio.create_task(
+                _forward_gemini_to_browser(
+                    ws,
+                    session,
+                    voice_settings,
+                    user_id=user_id,
+                )
+            )
 
             done, pending = await asyncio.wait(
                 [send_task, recv_task],
@@ -123,6 +190,7 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
 async def _forward_browser_to_gemini(
     ws: WebSocket,
     session,
+    voice_settings: LiveVoiceSettings,
 ) -> None:
     """Read messages from the browser WS and forward to Gemini Live."""
     while True:
@@ -152,40 +220,64 @@ async def _forward_browser_to_gemini(
 
         elif msg_type == "text":
             # Browser sends: {"type":"text","text":"hello"}
-            text = msg.get("text", "")
+            text = str(msg.get("text", "")).strip()
+            if not text:
+                continue
+            # Force question priority over passive guidance for this turn.
+            prompt = f"User question (priority): {text}"
             await session.send_client_content(
-                turns=types.Content(parts=[types.Part(text=text)]),
+                turns=[types.Content(role="user", parts=[types.Part(text=prompt)])],
                 turn_complete=True,
             )
 
         elif msg_type == "end_audio_stream":
             await session.send_realtime_input(audio_stream_end=True)
 
+        elif msg_type == "settings":
+            provider = str(msg.get("voice_provider", "")).strip().lower()
+            if provider in {"gemini", "elevenlabs"}:
+                voice_settings.voice_provider = provider
+            await ws.send_text(
+                json.dumps(
+                    {
+                        "type": "settings_ack",
+                        "voice_provider": voice_settings.voice_provider,
+                    }
+                )
+            )
+
 
 async def _forward_gemini_to_browser(
     ws: WebSocket,
     session,
+    voice_settings: LiveVoiceSettings,
+    *,
+    user_id: int | None = None,
 ) -> None:
     """Read responses from Gemini Live and forward to the browser WS."""
+    turn_text_chunks: list[str] = []
     while True:
         turn = session.receive()
         async for response in turn:
             # Audio data
             if data := response.data:
                 # Send raw PCM audio as base64 to browser
-                await ws.send_text(json.dumps({
-                    "type": "audio",
-                    "data": base64.b64encode(data).decode("ascii"),
-                }))
-                continue
+                if voice_settings.voice_provider != "elevenlabs":
+                    await ws.send_text(json.dumps({
+                        "type": "audio",
+                        "data": base64.b64encode(data).decode("ascii"),
+                    }))
 
-            # Text content
-            if text := response.text:
+            # Text content from output transcription chunks.
+            sc = getattr(response, "server_content", None)
+            output_tx = getattr(sc, "output_transcription", None) if sc else None
+            output_tx_text = getattr(output_tx, "text", None) if output_tx else None
+            if output_tx_text and str(output_tx_text).strip():
+                turn_text_chunks.append(str(output_tx_text))
                 await ws.send_text(json.dumps({
                     "type": "text",
-                    "text": text,
+                    "text": str(output_tx_text).strip(),
                 }))
-                continue
 
             # Check for interruption
             sc = response.server_content
@@ -195,4 +287,27 @@ async def _forward_gemini_to_browser(
             # Turn complete
             sc = response.server_content
             if sc and getattr(sc, "turn_complete", False):
+                if voice_settings.voice_provider == "elevenlabs":
+                    transcript_text = _normalize_transcript_text("".join(turn_text_chunks))
+                    if transcript_text:
+                        mp3_audio = await synthesize_async(transcript_text, user_id=user_id)
+                        if mp3_audio:
+                            await ws.send_text(
+                                json.dumps(
+                                    {
+                                        "type": "audio_mp3",
+                                        "data": base64.b64encode(mp3_audio).decode("ascii"),
+                                    }
+                                )
+                            )
+                        else:
+                            await ws.send_text(
+                                json.dumps(
+                                    {
+                                        "type": "warning",
+                                        "message": "ElevenLabs voice generation failed for this response.",
+                                    }
+                                )
+                            )
+                turn_text_chunks.clear()
                 await ws.send_text(json.dumps({"type": "turn_complete"}))

@@ -4,16 +4,8 @@ import asyncio
 import logging
 from contextlib import suppress
 
-import httpx
-
-from config import (
-    ELEVENLABS_API_KEY,
-    ELEVENLABS_MODEL,
-    ELEVENLABS_OPTIMIZE_STREAMING_LATENCY,
-    ELEVENLABS_OUTPUT_FORMAT,
-    ELEVENLABS_TTS_URL,
-    ELEVENLABS_VOICE_ID,
-)
+from app.config import ELEVENLABS_API_KEY
+from app.services.tts import synthesize_async as shared_synthesize_async
 
 logger = logging.getLogger("echo-sight.tts")
 
@@ -22,7 +14,6 @@ class TTSService:
     """Async queue worker for low-latency ElevenLabs Flash v2.5 synthesis."""
 
     def __init__(self) -> None:
-        self._client: httpx.AsyncClient | None = None
         self._running = False
         self._worker_task: asyncio.Task | None = None
         self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=8)
@@ -33,7 +24,6 @@ class TTSService:
     async def start(self) -> None:
         if self._running:
             return
-        self._client = httpx.AsyncClient(timeout=httpx.Timeout(8.0, connect=2.0))
         self._running = True
         self._worker_task = asyncio.create_task(self._worker(), name="tts-worker")
         logger.info("TTS service started.")
@@ -48,10 +38,6 @@ class TTSService:
             with suppress(asyncio.CancelledError):
                 await self._worker_task
             self._worker_task = None
-
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
 
         logger.info("TTS service stopped.")
 
@@ -94,42 +80,12 @@ class TTSService:
         if not ELEVENLABS_API_KEY:
             logger.debug("TTS simulated: %s", text)
             return
-        if self._client is None:
-            return
-
-        url = f"{ELEVENLABS_TTS_URL}/{ELEVENLABS_VOICE_ID}/stream"
-        headers = {
-            "xi-api-key": ELEVENLABS_API_KEY,
-            "Content-Type": "application/json",
-            "Accept": "audio/mpeg",
-        }
-        params = {
-            "output_format": ELEVENLABS_OUTPUT_FORMAT,
-            "optimize_streaming_latency": ELEVENLABS_OPTIMIZE_STREAMING_LATENCY,
-        }
-        payload = {
-            "text": text,
-            "model_id": ELEVENLABS_MODEL,
-            "voice_settings": {
-                "stability": 0.35,
-                "similarity_boost": 0.75,
-                "style": 0.0,
-                "use_speaker_boost": True,
-            },
-        }
-
-        response = await self._client.post(
-            url, headers=headers, params=params, json=payload
-        )
-        if response.status_code != 200:
-            logger.warning(
-                "ElevenLabs error %s: %s",
-                response.status_code,
-                response.text[:200],
-            )
+        audio = await shared_synthesize_async(text=text)
+        if not audio:
+            logger.warning("ElevenLabs synthesis failed or returned empty audio.")
             return
 
         async with self._audio_lock:
-            self._latest_audio = response.content
+            self._latest_audio = audio
 
         logger.info("TTS generated for prompt: %s", text)

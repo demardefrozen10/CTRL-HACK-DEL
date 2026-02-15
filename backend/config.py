@@ -26,12 +26,14 @@ SERIAL_BAUD = _as_int("SERIAL_BAUD", 115200)
 ESP32_CAM_URL = os.getenv("ESP32_CAM_URL", "demo").strip()
 CAPTURE_FPS = max(1, _as_int("CAPTURE_FPS", 30))
 INFERENCE_INTERVAL_MS = max(200, _as_int("INFERENCE_INTERVAL_MS", 1000))
+FRONTEND_APP_URL = os.getenv("FRONTEND_APP_URL", "http://127.0.0.1:5173").strip().rstrip("/")
 
 ELEVENLABS_TTS_URL = os.getenv(
     "ELEVENLABS_TTS_URL", "https://api.elevenlabs.io/v1/text-to-speech"
 ).rstrip("/")
 ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM").strip()
 ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "eleven_flash_v2_5").strip()
+ELEVENLABS_STS_MODEL = os.getenv("ELEVENLABS_STS_MODEL", "eleven_multilingual_sts_v2").strip()
 ELEVENLABS_OUTPUT_FORMAT = os.getenv("ELEVENLABS_OUTPUT_FORMAT", "mp3_22050_32").strip()
 ELEVENLABS_OPTIMIZE_STREAMING_LATENCY = os.getenv(
     "ELEVENLABS_OPTIMIZE_STREAMING_LATENCY", "4"

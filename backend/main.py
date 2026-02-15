@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 
 from app.database import Base, engine
 from app.routers import auth
@@ -17,11 +17,12 @@ from app.routers.stream import router as app_stream_router
 from app.routers.tts import router as app_tts_router
 from app.routers.vision import router as app_vision_router
 from app.routers.voice_studio import router as app_voice_studio_router
+from app.routers.elevenlabs_tools import router as app_elevenlabs_tools_router
 from app.routers.gemini_live import router as gemini_live_router
 from app.services import close_haptic as app_close_haptic
 from app.services import frame_buffer as app_frame_buffer
 from app.services.vision import inference_loop as app_inference_loop
-from config import CAPTURE_FPS, CORS_ORIGINS, ESP32_CAM_URL, INFERENCE_INTERVAL_MS
+from config import CAPTURE_FPS, CORS_ORIGINS, ESP32_CAM_URL, FRONTEND_APP_URL, INFERENCE_INTERVAL_MS
 from gemini_service import GeminiService
 from haptic_service import HapticService
 from tts_service import TTSService
@@ -165,6 +166,7 @@ app.include_router(app_tts_router)
 app.include_router(app_haptic_router)
 app.include_router(app_stream_router)
 app.include_router(app_voice_studio_router)
+app.include_router(app_elevenlabs_tools_router)
 app.include_router(gemini_live_router)
 
 
@@ -219,9 +221,24 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         await ws_hub.disconnect(ws)
 
 
-@app.get("/", response_class=HTMLResponse)
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard() -> HTMLResponse:
+def _frontend_path(path: str = "") -> str:
+    base = FRONTEND_APP_URL.rstrip("/")
+    suffix = f"/{path.lstrip('/')}" if path else ""
+    return f"{base}{suffix}"
+
+
+@app.get("/")
+async def dashboard_redirect_root() -> RedirectResponse:
+    return RedirectResponse(url=_frontend_path(), status_code=307)
+
+
+@app.get("/dashboard")
+async def dashboard_redirect() -> RedirectResponse:
+    return RedirectResponse(url=_frontend_path("/dashboard"), status_code=307)
+
+
+@app.get("/legacy-dashboard", response_class=HTMLResponse)
+async def dashboard_legacy() -> HTMLResponse:
     html_path = Path(__file__).parent / "static" / "dashboard.html"
     if not html_path.exists():
         return HTMLResponse("<h1>Dashboard not found</h1>", status_code=404)

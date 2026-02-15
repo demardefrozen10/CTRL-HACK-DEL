@@ -148,3 +148,31 @@ async def fetch_voices() -> list[dict[str, Any]]:
     voices = payload.get("voices", [])
     normalized = [normalize_voice(voice) for voice in voices if isinstance(voice, dict)]
     return sorted(normalized, key=lambda voice: voice["name"].lower())
+
+
+async def fetch_models() -> list[str]:
+    """Fetch available model IDs from ElevenLabs."""
+    if not ELEVENLABS_API_KEY:
+        raise RuntimeError("ELEVENLABS_API_KEY is not configured")
+
+    headers = {"xi-api-key": ELEVENLABS_API_KEY}
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        response = await client.get("https://api.elevenlabs.io/v1/models", headers=headers)
+    response.raise_for_status()
+
+    payload = response.json()
+    if isinstance(payload, list):
+        model_items = payload
+    elif isinstance(payload, dict):
+        model_items = payload.get("models", [])
+    else:
+        model_items = []
+
+    model_ids: list[str] = []
+    for item in model_items:
+        if not isinstance(item, dict):
+            continue
+        value = item.get("model_id") or item.get("id")
+        if isinstance(value, str) and value.strip():
+            model_ids.append(value.strip())
+    return sorted(set(model_ids))

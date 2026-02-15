@@ -50,6 +50,17 @@ def authenticate_user(db: Session, username: str, password: str) -> Optional[mod
     return user
 
 
+def get_user_from_token(db: Session, token: str) -> Optional[models.User]:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not isinstance(username, str) or not username:
+            return None
+    except JWTError:
+        return None
+    return get_user_by_username(db, username=username)
+
+
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ) -> models.User:

@@ -50,12 +50,12 @@ export function CarouselPage() {
       aria-label="Frame styles gallery"
     >
       <header className="mb-8 space-y-3">
-        <Badge variant="outline" className="w-fit border-white/20 text-sm text-white/70">
+        <Badge variant="outline" className="w-fit text-sm">
           Style Gallery
         </Badge>
         <h1 
           id="gallery-heading" 
-          className="text-3xl font-bold tracking-tight text-white sm:text-4xl"
+          className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl"
         >
           Browse frame collections
         </h1>
@@ -80,7 +80,7 @@ export function CarouselPage() {
                 className="md:basis-1/2"
                 aria-label={`Slide ${index + 1} of ${glassesStyles.length}: ${style.title}`}
               >
-                <Card className="overflow-hidden border-white/10 bg-card">
+                <Card className="overflow-hidden">
                   <img
                     src={style.image}
                     alt={`${style.title} glasses frame - ${style.description}`}

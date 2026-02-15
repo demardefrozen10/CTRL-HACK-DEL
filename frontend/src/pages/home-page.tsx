@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, Play, X, Glasses, ArrowRight, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { X, Glasses, ArrowRight, Loader2 } from 'lucide-react'
 
+import { Hero } from '@/components/Hero'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
@@ -12,8 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import heroBackground from '@/assets/rb-hp-pday-sun-d.jpg'
-import csHubLogo from '@/assets/CS Hub (4).png'
 
 function apiBaseUrl() {
   const envBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim()
@@ -116,129 +115,34 @@ export function HomePage() {
 
   return (
     <main id="main-content" className="w-full" role="main">
-      {/* ── Hero ── */}
-      <section 
-        className="relative min-h-[85vh] w-full overflow-hidden"
-        aria-labelledby="hero-heading"
-      >
-        <img
-          src={heroBackground}
-          alt=""
-          role="presentation"
-          className="absolute inset-0 h-full w-full object-cover opacity-40"
-        />
-
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-background" aria-hidden="true" />
-
-        <header className="absolute left-0 right-0 top-0 z-20" role="banner">
-          <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-6 sm:px-10">
-            <div className="flex items-center gap-2">
-              <Glasses className="h-7 w-7 text-white" aria-hidden="true" />
-              <span className="text-3xl font-bold italic tracking-tight text-white">VibeGlasses</span>
-            </div>
-
-            <nav aria-label="Main navigation" className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                className="h-10 px-3 text-base font-medium text-white/80 hover:bg-white/10 hover:text-white"
-                onClick={() => setShowLogin(true)}
-                aria-label="Sign in to your account"
-              >
-                Sign in
-              </Button>
-              <Button
-                size="sm"
-                className="h-9 rounded-md bg-white px-5 text-sm font-semibold text-black hover:bg-white/90"
-                onClick={() => setShowLogin(true)}
-                aria-label="Get started with VibeGlasses"
-              >
-                Get started
-              </Button>
-            </nav>
-          </div>
-        </header>
-
-        <div className="relative z-10 mx-auto flex min-h-[85vh] w-full max-w-5xl flex-col items-center justify-center px-6 pb-16 pt-32 text-center sm:px-10">
-          <h1 
-            id="hero-heading"
-            className="max-w-4xl text-5xl font-bold leading-[1.08] tracking-tight text-white sm:text-6xl md:text-7xl mt-12"
-          >
-            VibeGlasses
-          </h1>
-
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/70 sm:text-lg">
-            Design & program smart glasses for your visually impaired loved ones.
-          </p>
-
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4" role="group" aria-label="Call to action buttons">
-            <Button
-              size="lg"
-              className="h-12 gap-2 rounded-lg bg-white px-7 text-sm font-semibold text-black hover:bg-white/90"
-              onClick={() => setShowLogin(true)}
-              aria-label="Get started with VibeGlasses - opens sign in dialog"
-            >
-              Get Started
-              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="h-12 gap-2 rounded-lg border-white/20 bg-white/5 px-7 text-sm font-semibold text-white hover:bg-white/10"
-            >
-              <Link to="/carousel" aria-label="Watch demo video of VibeGlasses">
-                <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                Watch Demo
-              </Link>
-            </Button>
-          </div>
-
-          {/* Powered By */}
-          <div className="mt-10 flex flex-col items-center">
-            <p className="text-l uppercase tracking-widest text-white/50 mb-5">Powered By</p>
-            <img
-              src={csHubLogo}
-              alt="CS Hub - powering VibeGlasses"
-              className="mt-2 h-auto w-20 object-contain"
-            />
-          </div>
-
-          <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 items-center gap-4 text-xs text-white/50 sm:text-sm" aria-label="Product features">
-            <span>Open source</span>
-            <span className="h-1 w-1 rounded-full bg-white/30" aria-hidden="true" />
-            <span>Arduino powered</span>
-            <span className="h-1 w-1 rounded-full bg-white/30" aria-hidden="true" />
-            <span>AI-enhanced</span>
-          </div>
-        </div>
-      </section>
+      <Hero onGetStarted={() => setShowLogin(true)} onSignIn={() => setShowLogin(true)} />
 
       {/* ── Content ── */}
-      <section 
-        className="mx-auto w-full max-w-6xl px-6 py-20 sm:px-10"
+      <section
+        className="mx-auto w-full max-w-6xl px-6 pb-20 pt-16 sm:px-10"
         aria-labelledby="how-it-works-heading"
       >
-        <Separator className="mb-14 bg-white/10" role="presentation" />
+        <Separator className="mb-10 opacity-60" role="presentation" />
 
         <div className="mb-10 max-w-2xl">
           <p className="mb-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
             How it works
           </p>
-          <h2 
+          <h2
             id="how-it-works-heading"
-            className="text-3xl font-semibold tracking-tight text-white sm:text-4xl"
+            className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl"
           >
             Designed around real accessibility needs
           </h2>
           <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-            Echo-Sight targets micro-navigation—finding a chair, sensing a half-open door, or detecting a step—using a lightweight wearable hardware stack.
+            S.E.N.S.E. targets micro-navigation, like finding a chair, sensing a half-open door, or detecting a step, using a lightweight wearable hardware stack.
           </p>
         </div>
 
         <div className="grid gap-5 md:grid-cols-3" role="list" aria-label="Key features">
-          <Card className="border-white/10 bg-card" role="listitem">
+          <Card role="listitem">
             <CardHeader>
-              <CardTitle className="text-white">Spatial Feedback</CardTitle>
+              <CardTitle className="text-foreground">Spatial Feedback</CardTitle>
               <CardDescription>
                 Camera input is processed and converted into directional haptic cues and spatial audio.
               </CardDescription>
@@ -248,9 +152,9 @@ export function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-white/10 bg-card" role="listitem">
+          <Card role="listitem">
             <CardHeader>
-              <CardTitle className="text-white">Hardware Stack</CardTitle>
+              <CardTitle className="text-foreground">Hardware Stack</CardTitle>
               <CardDescription>
                 Arduino, servo and DC motors, accelerometer, IR and ultrasonic sensors, camera, and flashlight.
               </CardDescription>
@@ -260,9 +164,9 @@ export function HomePage() {
             </CardContent>
           </Card>
 
-          <Card className="border-white/10 bg-card" role="listitem">
+          <Card role="listitem">
             <CardHeader>
-              <CardTitle className="text-white">Real Impact</CardTitle>
+              <CardTitle className="text-foreground">Real Impact</CardTitle>
               <CardDescription>
                 Bridges the gap between macro wayfinding and close-range obstacle awareness.
               </CardDescription>
@@ -277,7 +181,7 @@ export function HomePage() {
       {/* ── Login Modal - WCAG compliant dialog ── */}
       {showLogin && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          className="modal-scrim fixed inset-0 z-50 flex items-center justify-center px-6 py-10"
           onClick={() => setShowLogin(false)}
           role="dialog"
           aria-modal="true"
@@ -286,38 +190,44 @@ export function HomePage() {
         >
           <div
             ref={modalRef}
-            className="relative w-full max-w-xs rounded-2xl border border-white/10 bg-background px-6 pb-6 pt-5"
+            className="relative w-full max-w-sm rounded-2xl border border-border bg-background px-6 pb-7 pt-6 shadow-lg sm:max-w-md sm:px-8"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               ref={closeButtonRef}
               onClick={() => setShowLogin(false)}
-              className="absolute right-5 top-5 rounded-md p-1 text-white/50 hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="absolute right-5 top-5 rounded-lg p-2 text-muted-foreground hover:bg-card hover:text-foreground"
               aria-label="Close login dialog"
               type="button"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
+              <X className="h-6 w-6" aria-hidden="true" />
             </button>
 
             {/* Icon */}
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-white" aria-hidden="true">
-              <Glasses className="h-8 w-8 text-black" />
+            <div
+              className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-border bg-card"
+              aria-hidden="true"
+            >
+              <Glasses className="h-8 w-8 text-foreground" />
             </div>
 
             {/* Header */}
-            <h2 id="login-dialog-title" className="mb-1 text-center text-2xl font-bold text-white">
+            <h2
+              id="login-dialog-title"
+              className="mb-2 text-center text-3xl font-bold tracking-tight text-foreground"
+            >
               Welcome back!
             </h2>
-            <p id="login-dialog-description" className="mb-6 text-center text-sm text-white/60">
+            <p id="login-dialog-description" className="mb-7 text-center text-base text-muted-foreground">
               Please sign in to continue.
             </p>
 
             {/* Error Message - WCAG 3.3.1 Error Identification */}
             {error && (
-              <div 
-                role="alert" 
+              <div
+                role="alert"
                 aria-live="assertive"
-                className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-center text-sm text-red-400"
+                className="mb-4 rounded-lg border border-destructive bg-card p-3 text-center text-sm text-foreground"
               >
                 <span className="sr-only">Error: </span>
                 {error}
@@ -337,7 +247,7 @@ export function HomePage() {
                   placeholder="Username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="h-12 rounded-lg border-white/10 bg-white/5 px-4"
+                  className="h-12 rounded-xl px-4 text-base"
                   required
                   autoComplete="username"
                   aria-required="true"
@@ -354,7 +264,7 @@ export function HomePage() {
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-12 rounded-lg border-white/10 bg-white/5 px-4"
+                  className="h-12 rounded-xl px-4 text-base"
                   required
                   autoComplete="current-password"
                   aria-required="true"
@@ -364,7 +274,7 @@ export function HomePage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="h-12 w-full gap-2 rounded-lg bg-white text-base font-semibold text-black hover:bg-white/90 disabled:opacity-50"
+                className="h-12 w-full gap-2 rounded-xl bg-foreground text-base font-semibold text-background hover:opacity-90 disabled:opacity-50"
                 aria-label={loading ? 'Signing in...' : 'Sign in to your account'}
               >
                 {loading ? (
@@ -382,7 +292,7 @@ export function HomePage() {
             </form>
 
             {/* Footer */}
-            <p className="mt-6 text-center text-sm text-white/50">
+            <p className="mt-6 text-center text-sm text-muted-foreground">
               Beta access only. Contact us to get access.
             </p>
           </div>

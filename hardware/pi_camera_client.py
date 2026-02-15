@@ -29,6 +29,10 @@ FRAME_HEIGHT = int(os.getenv("FRAME_HEIGHT", "360"))
 RECONNECT_DELAY_SEC = float(os.getenv("RECONNECT_DELAY_SEC", "3"))
 
 
+class SourceAlreadyActiveError(RuntimeError):
+    pass
+
+
 def _build_backend_ws_url() -> str:
     if BACKEND_WS_URL:
         if ("localhost" in BACKEND_WS_URL or "127.0.0.1" in BACKEND_WS_URL) and PC_LAN_IP:
@@ -134,7 +138,10 @@ async def _recv_loop(ws: websockets.ClientConnection) -> None:
         elif message_type == "input_transcription":
             print(f"[User Transcript] {message.get('text', '')}")
         elif message_type == "error":
-            print(f"[WS Error] {message.get('message', 'Unknown error')}")
+            error_message = str(message.get("message", "Unknown error"))
+            print(f"[WS Error] {error_message}")
+            if "already active" in error_message.lower():
+                raise SourceAlreadyActiveError(error_message)
         elif message_type == "audio" and not warned_audio_drop:
             warned_audio_drop = True
             print("[WS] Received Gemini audio chunks. Pi client is video-only; browser handles speaker output.")
@@ -180,7 +187,7 @@ async def stream_camera_to_backend(stop_event: asyncio.Event) -> None:
             async with websockets.connect(
                 RESOLVED_BACKEND_WS_URL,
                 ping_interval=20,
-                ping_timeout=20,
+                ping_timeout=45,
                 compression=None,
             ) as ws:
                 recv_task = asyncio.create_task(_recv_loop(ws))
@@ -188,17 +195,23 @@ async def stream_camera_to_backend(stop_event: asyncio.Event) -> None:
 
                 done, pending = await asyncio.wait(
                     [recv_task, send_task],
-                    return_when=asyncio.FIRST_EXCEPTION,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
 
                 for task in pending:
                     task.cancel()
+                if pending:
+                    await asyncio.gather(*pending, return_exceptions=True)
 
                 for task in done:
                     task.result()
 
         except asyncio.CancelledError:
             raise
+        except SourceAlreadyActiveError as exc:
+            print(f"[WS] Source rejected by server: {exc}")
+            if not stop_event.is_set():
+                await asyncio.sleep(max(RECONNECT_DELAY_SEC, 5.0))
         except Exception as exc:
             print(f"[WS] Connection lost: {exc}")
             if not stop_event.is_set():

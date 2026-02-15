@@ -11,10 +11,19 @@ import base64
 import json
 import logging
 import os
+import time
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from google import genai
-from google.genai import types
+
+try:
+    from google import genai
+    from google.genai import types
+    _GENAI_IMPORT_ERROR: Exception | None = None
+except Exception as exc:  # pragma: no cover - import environment dependent
+    genai = None  # type: ignore[assignment]
+    types = None  # type: ignore[assignment]
+    _GENAI_IMPORT_ERROR = exc
 
 logger = logging.getLogger("echo-sight.gemini-live")
 
@@ -26,6 +35,10 @@ _source_lock = asyncio.Lock()
 _control_queue: asyncio.Queue[dict] = asyncio.Queue()
 _source_connected = False
 _session_active = False
+_source_last_seen_monotonic = 0.0
+_SOURCE_STALE_SECONDS = 12.0
+_last_preview_sent_monotonic = 0.0
+_PREVIEW_MAX_FPS = 6.0
 
 
 def _offer_latest_video_frame(queue: asyncio.Queue[str], b64_data: str) -> None:
@@ -63,8 +76,13 @@ SYSTEM_INSTRUCTION = (
 )
 
 
-def _build_config() -> types.LiveConnectConfig:
+def _build_config() -> Any:
     """Build the Gemini Live session config."""
+    if types is None:
+        raise RuntimeError(
+            f"Gemini Live SDK unavailable: {_GENAI_IMPORT_ERROR!r}. "
+            "Install/upgrade google-genai in the active Python environment."
+        )
     return types.LiveConnectConfig(
         response_modalities=["AUDIO"],
         system_instruction=types.Content(
@@ -102,6 +120,17 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
     await ws.accept()
     logger.info("[DEBUG] Source WebSocket ACCEPTED  client=%s", ws.client)
 
+    if genai is None:
+        await ws.send_text(json.dumps({
+            "type": "error",
+            "message": (
+                "Gemini Live SDK is unavailable on this server. "
+                f"Import error: {_GENAI_IMPORT_ERROR!r}"
+            ),
+        }))
+        await ws.close()
+        return
+
     if not GEMINI_API_KEY:
         await ws.send_text(json.dumps({
             "type": "error",
@@ -110,16 +139,25 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
         await ws.close()
         return
 
-    global _source_connected
+    global _source_connected, _source_last_seen_monotonic
     async with _source_lock:
         if _source_connected:
-            await ws.send_text(json.dumps({
-                "type": "error",
-                "message": "A source session is already active.",
-            }))
-            await ws.close()
-            return
+            age = time.monotonic() - _source_last_seen_monotonic
+            if age > _SOURCE_STALE_SECONDS:
+                logger.warning(
+                    "Stale source session detected (last_seen %.2fs ago). Allowing takeover.",
+                    age,
+                )
+                _source_connected = False
+            else:
+                await ws.send_text(json.dumps({
+                    "type": "error",
+                    "message": "A source session is already active.",
+                }))
+                await ws.close()
+                return
         _source_connected = True
+        _source_last_seen_monotonic = time.monotonic()
 
     logger.info("[DEBUG] source_connected broadcast sent to viewers")
     await _broadcast_to_viewers({"type": "source_connected"})
@@ -181,6 +219,7 @@ async def gemini_live_proxy(ws: WebSocket) -> None:
             pass
         async with _source_lock:
             _source_connected = False
+            _source_last_seen_monotonic = 0.0
         logger.info("Gemini Live session closed")
         await _broadcast_to_viewers({"type": "source_disconnected"})
 
@@ -247,9 +286,11 @@ async def _forward_source_to_gemini(
     video_queue: asyncio.Queue[str],
 ) -> None:
     """Read messages from source WS and forward video to Gemini Live."""
+    global _source_last_seen_monotonic, _last_preview_sent_monotonic
     frame_count = 0
     while True:
         raw = await ws.receive_text()
+        _source_last_seen_monotonic = time.monotonic()
         msg = json.loads(raw)
         msg_type = msg.get("type")
 
@@ -265,7 +306,12 @@ async def _forward_source_to_gemini(
                     len(b64_data),
                     n_viewers,
                 )
-            await _broadcast_to_viewers({"type": "video_preview", "data": b64_data})
+            if _viewer_clients:
+                now = time.monotonic()
+                min_interval = 1.0 / max(_PREVIEW_MAX_FPS, 0.1)
+                if now - _last_preview_sent_monotonic >= min_interval:
+                    _last_preview_sent_monotonic = now
+                    await _broadcast_to_viewers({"type": "video_preview", "data": b64_data})
             _offer_latest_video_frame(video_queue, b64_data)
 
         elif msg_type == "audio":

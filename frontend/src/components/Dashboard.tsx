@@ -11,6 +11,8 @@ const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
 
 export function Dashboard() {
   const { theme, setTheme, accentColor, setAccentColor, resetAccentColor } = useTheme()
+  const accentLocked = theme === 'high-contrast'
+  const effectiveAccentColor = accentLocked ? '#ffff00' : accentColor
 
   return (
     <section className="rounded-xl border border-border bg-card p-6">
@@ -59,14 +61,15 @@ export function Dashboard() {
             <input
               id="accent-color"
               type="color"
-              value={accentColor}
+              value={effectiveAccentColor}
               onChange={(event) => setAccentColor(event.target.value)}
-              className="h-12 w-full cursor-pointer rounded-lg border border-border bg-background p-2 sm:w-24"
+              disabled={accentLocked}
+              className="h-12 w-full cursor-pointer rounded-lg border border-border bg-background p-2 disabled:cursor-not-allowed disabled:opacity-70 sm:w-24"
               aria-describedby="accent-help"
             />
             <div
               className="h-12 w-full rounded-lg border border-border sm:w-24"
-              style={{ backgroundColor: accentColor }}
+              style={{ backgroundColor: effectiveAccentColor }}
               aria-hidden="true"
             />
             <Button
@@ -74,12 +77,15 @@ export function Dashboard() {
               variant="outline"
               className="w-full border-border bg-background text-foreground hover:bg-card sm:w-auto"
               onClick={resetAccentColor}
+              disabled={accentLocked}
             >
               Reset Accent
             </Button>
           </div>
           <p id="accent-help" className="mt-2 text-sm text-muted-foreground">
-            Selected accent: {accentColor.toUpperCase()}
+            {accentLocked
+              ? 'High Contrast locks the accent color to yellow.'
+              : `Selected accent: ${effectiveAccentColor.toUpperCase()}`}
           </p>
         </div>
       </div>

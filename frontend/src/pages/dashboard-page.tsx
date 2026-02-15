@@ -528,23 +528,23 @@ export function DashboardPage() {
               </p>
               <p>
                 <span className="font-medium text-foreground">Camera:</span>{' '}
-                {cameraOn ? '🟢 streaming' : '⚫ off'}
+                {cameraOn ? 'Streaming' : 'Off'}
               </p>
               <p>
                 <span className="font-medium text-foreground">Mic:</span>{' '}
-                {micOn ? '🟢 streaming' : '⚫ off'}
+                {micOn ? 'Streaming' : 'Off'}
               </p>
               <p>
                 <span className="font-medium text-foreground">Gemini:</span>{' '}
-                {sessionActive ? '🟢 live session' : '⚫ not connected'}
+                {sessionActive ? 'Live session' : 'Not connected'}
               </p>
               <p>
                 <span className="font-medium text-foreground">Voice Output:</span>{' '}
-                {voiceProvider === 'elevenlabs' ? '🟢 ElevenLabs custom' : '🟢 Gemini native'}
+                {voiceProvider === 'elevenlabs' ? 'ElevenLabs custom' : 'Gemini native'}
               </p>
               <p>
                 <span className="font-medium text-foreground">Voice Profile:</span>{' '}
-                {voiceCustomizationEnabled ? '🟢 linked to your account' : '⚫ login token missing'}
+                {voiceCustomizationEnabled ? 'Linked to your account' : 'Login token missing'}
               </p>
             </div>
           </Panel>

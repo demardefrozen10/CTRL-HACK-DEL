@@ -67,9 +67,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme])
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--accent', accentColor)
+    const effectiveAccent =
+      theme === 'high-contrast' ? DEFAULT_ACCENT['high-contrast'] : accentColor
+    document.documentElement.style.setProperty('--accent', effectiveAccent)
     localStorage.setItem(STORAGE_ACCENT_KEY, accentColor)
-  }, [accentColor])
+  }, [accentColor, theme])
 
   const setTheme = useCallback((nextTheme: ThemeMode) => {
     setThemeState(nextTheme)

@@ -12,7 +12,7 @@ type HeroProps = {
 }
 
 export function Hero({ onGetStarted, onSignIn }: HeroProps) {
-  const { theme, setTheme } = useTheme()
+  const { theme, toggleTheme } = useTheme()
 
   const themeLabel: Record<ThemeMode, string> = {
     dark: 'Dark',
@@ -51,23 +51,20 @@ export function Hero({ onGetStarted, onSignIn }: HeroProps) {
           </div>
 
           <nav aria-label="Main navigation" className="flex items-center gap-3">
-            <label htmlFor="theme-select" className="sr-only">
-              Theme
-            </label>
-            <select
-              id="theme-select"
-              value={theme}
-              onChange={(event) => setTheme(event.target.value as ThemeMode)}
-              className="h-11 w-32 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring focus-visible:ring-offset-4 focus-visible:ring-offset-background sm:w-44 sm:text-base"
-              aria-label={`Theme selector. Current theme: ${themeLabel[theme]}`}
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-11 rounded-lg px-4 text-sm font-semibold sm:px-5 sm:text-base"
+              onClick={toggleTheme}
+              aria-label={`Theme: ${themeLabel[theme]}. Activate to switch theme.`}
+              title="Switch theme"
             >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="high-contrast">High Contrast</option>
-            </select>
+              {themeLabel[theme]}
+            </Button>
             <Button
               variant="ghost"
-              className="h-11 px-3 text-sm font-medium text-foreground hover:bg-card sm:px-5 sm:text-base"
+              className="h-11 rounded-lg px-3 text-sm font-medium text-foreground sm:px-5 sm:text-base"
               onClick={onSignIn}
               aria-label="Sign in to your account"
             >

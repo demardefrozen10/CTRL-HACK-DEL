@@ -41,9 +41,9 @@ CAMERA_INDEX=0            # Default for USB Webcam
 INFERENCE_INTERVAL_MS=5000 # Cooldown to prevent API spam
 ```
 
-### 4. Run the Brain
+### 4. Run the Brain In Rasberry PI
 ```bash
-python3 main.py
+python3 pi_camera_client.py
 ```
 
 ## Hardware
@@ -57,6 +57,9 @@ python3 main.py
 ## System Logic
 1. **Arduino:** Handles immediate safety. It measures distance and triggers the buzzer pulses. It operates independently of the Pi to ensure zero-latency feedback.
 2. **Raspberry Pi:** Captures raw video frames and streams them via WebSockets to the React Dashboard. The Dashboard maintains a real-time, multimodal session with the Gemini Live API. The AI watches the video feed and provides conversational audio guidance (e.g., "There is a path clearing to your left") directly to the user.
+
+<img width="522" height="271" alt="image" src="https://github.com/user-attachments/assets/579f47c4-e8b8-4d1f-87e3-1b1e1b3338e8" />
+
 
 ## API Endpoints
 | Endpoint | Method | Description |
